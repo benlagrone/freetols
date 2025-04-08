@@ -12,12 +12,7 @@
   overflow-y: auto;
 }
 
-.canvas-container {
-  flex: 1;
-  background-color: #e0e0e0;
-  padding: 20px;
-  overflow: hidden;
-}
+
 
 .tool-section {
   margin: 15px 0;
@@ -94,6 +89,19 @@
   color: white;
   border-color: #4CAF50;
 }
+.shapes-submenu {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.shapes-submenu button {
+  padding: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 select {
   width: 100%;
@@ -160,7 +168,19 @@ select option {
   flex: 1;
   background-color: #e0e0e0;
   padding: 20px;
-  overflow: hidden;
+  /* overflow: hidden; */
+  position: relative; /* <-- Add this line */
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  overflow: auto;
+}
+
+.canvas-container canvas {
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .tool-section {
