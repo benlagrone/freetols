@@ -1,30 +1,51 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body, html {
+  height: 100%;
+  width: 100%;
+  overflow: auto; /* Allow the browser's main scrollbar to be used if needed */
+}
+/* New wrapper for ads and app */
+.page-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.ad-top, .ad-bottom {
+  height: 150px;
+  background-color: #ccc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.content-wrapper {
+  display: flex;
+  flex: 1;
+}
+
+.ad-left, .ad-right {
+  width: 150px;
+  background-color: #ccc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .app-container {
   display: flex;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden;
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-  }
+  flex-grow: 1;
 }
 
 .toolbar {
   width: 250px;
   background-color: #f0f0f0;
-  padding: 20px;
-  border-right: 1px solid #ccc;
-  overflow-y: auto;
-  z-index: 2;
-
-  @media (max-width: 768px) {
-    width: 100%;
-    height: auto;
-    max-height: 50vh;
-    padding: 10px;
-    border-right: none;
-    border-bottom: 1px solid #ccc;
-  }
 }
 
 .toolbar select.scale-select {
@@ -121,8 +142,8 @@
 }
 .shapes-submenu {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 5px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
   margin-top: 5px;
 }
 
@@ -199,42 +220,125 @@ select option {
 
 .app-container {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
+  flex-direction: row;
+  justify-content: center;
+  align-items: stretch; /* Stretch to fill the container vertically */
+  overflow: hidden; /* Prevent internal scrolling */
 }
 
 .toolbar {
   width: 250px;
   background-color: #f0f0f0;
   padding: 20px;
-  border-right: 1px solid #ccc;
-  overflow-y: auto;
+  overflow: hidden; /* Prevent scrolling within the toolbar */
 }
 
 .canvas-container {
-  flex: 1;
-  background-color: #e0e0e0;
-  position: relative;
-  display: flex;
+  flex-grow: 1;
   justify-content: center;
   align-items: center;
-  padding: 20px;
-  overflow: auto;
+  background-color: #e0e0e0;
+  overflow: hidden;
 }
 
-.canvas-container canvas {
+.canvas-container > div {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+}
+
+.canvas-container canvas::first {
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
-  position: absolute;
-  top: 0;
-  left: 0;
 }
 
+.canvas-wrapper {
+  position: relative;
+  width: fit-content;
+  height: fit-content;
+  margin: auto;
+}
+/* .canvas-container > .canvas-container {
+  position: static !important;
+  margin: auto !important;
+  overflow: visible !important;
+} */
 .tool-section {
   background: white;
   padding: 15px;
   margin: 10px 0;
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.shapes-submenu {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.tool-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  height: 40px;
+  background-color: #4CAF50; /* Changed to green background */
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tool-button:hover {
+  background-color: #45a049; /* Darker green on hover */
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.tool-button i {
+  font-size: 18px;
+  color: white; /* Changed to white for better contrast */
+}
+
+.tool-button.active {
+  background-color: #357a38; /* Even darker green for active state */
+}
+
+.tool-button.active i {
+  color: white;
+}
+.tool-button svg {
+  width: 24px; /* Adjust the size of the icons */
+  height: 24px;
+  fill: #fff; /* Color of the SVG */
+}
+
+.tool-button:hover svg {
+  fill: #fff; /* Color change on hover */
+}
+
+/* Update text controls */
+.text-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.text-controls button {
+  padding: 8px;
+  min-height: 36px;
+}
+
+.text-align {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.text-align button {
+  padding: 8px;
+  min-height: 36px;
 }
 
 .text-formatting {

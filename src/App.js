@@ -33,18 +33,18 @@ function App() {
 
   const handleScaleChange = (newScale) => {
     if (!fabricCanvasRef.current) return;
-  
+
     // Store current canvas state
     const canvasJSON = fabricCanvasRef.current.toJSON();
     const width = isLandscape ? 1280 : 720;
     const height = isLandscape ? 720 : 1280;
-  
+
     // Set new dimensions
     fabricCanvasRef.current.setDimensions({
       width: width * newScale,
       height: height * newScale
     });
-  
+
     // Load content back and scale it
     fabricCanvasRef.current.loadFromJSON(canvasJSON, () => {
       fabricCanvasRef.current.setZoom(newScale);
@@ -55,19 +55,19 @@ function App() {
 
   const toggleOrientation = () => {
     if (!fabricCanvasRef.current) return;
-  
+
     // Get the current canvas content as JSON
     const canvasJSON = fabricCanvasRef.current.toJSON();
-  
+
     // Update dimensions with current scale
     const width = (!isLandscape ? 1280 : 720) * canvasScale;
     const height = (!isLandscape ? 720 : 1280) * canvasScale;
-  
+
     fabricCanvasRef.current.setDimensions({
       width: width,
       height: height
     });
-  
+
     // Load the saved content back
     fabricCanvasRef.current.loadFromJSON(canvasJSON, () => {
       fabricCanvasRef.current.setZoom(canvasScale);
@@ -81,6 +81,11 @@ function App() {
       console.error('Canvas ref is not attached');
       return;
     }
+
+    // Initialize canvas with scaled dimensions
+    const baseWidth = isLandscape ? 1280 : 720;
+    const baseHeight = isLandscape ? 720 : 1280;
+
 
     // Initialize canvas
     const canvas = new Canvas(canvasRef.current, {
@@ -112,14 +117,17 @@ function App() {
       editingBorderColor: 'rgba(100, 100, 255, 0.8)'
     });
 
+    canvas.setZoom(canvasScale);
     fabricCanvasRef.current = canvas;
+    // Force initial render to show background
+    canvas.requestRenderAll();
 
     // Handle window resize
     const handleResize = () => {
       if (fabricCanvasRef.current) {
         const width = isLandscape ? 1280 : 720;
         const height = isLandscape ? 720 : 1280;
-        
+
         fabricCanvasRef.current.setDimensions({
           width: width * canvasScale,
           height: height * canvasScale
@@ -640,8 +648,8 @@ function App() {
     const smile = new Path(
       'M -20 10 Q 0 25 20 10',
       {
-        left: centerX,
-        top: centerY + 10,
+        left: centerX - 20,
+        top: centerY + 15,
         fill: '',
         stroke: '#000000',
         strokeWidth: 2,
@@ -755,6 +763,61 @@ function App() {
       fabricCanvasRef.current.discardActiveObject();
       fabricCanvasRef.current.requestRenderAll(); // Use requestRenderAll() instead of renderAll()
     }
+  };
+
+  const downloadThumbnail = () => {
+    if (!fabricCanvasRef.current) return;
+  
+    // Get the canvas data as a data URL
+    const dataURL = fabricCanvasRef.current.toDataURL({
+      format: 'jpeg',
+      quality: 0.8 // Adjust quality to reduce size
+    });
+  
+    // Create an image element
+    const img = new Image();
+    img.src = dataURL;
+  
+    img.onload = () => {
+      // Create a canvas to resize the image
+      const thumbnailCanvas = document.createElement('canvas');
+      const ctx = thumbnailCanvas.getContext('2d');
+  
+      // Set the desired thumbnail size
+      const maxWidth = 300; // Adjust as needed
+      const maxHeight = 300; // Adjust as needed
+  
+      // Calculate the new dimensions
+      let width = img.width;
+      let height = img.height;
+  
+      if (width > height) {
+        if (width > maxWidth) {
+          height *= maxWidth / width;
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width *= maxHeight / height;
+          height = maxHeight;
+        }
+      }
+  
+      thumbnailCanvas.width = width;
+      thumbnailCanvas.height = height;
+  
+      // Draw the resized image
+      ctx.drawImage(img, 0, 0, width, height);
+  
+      // Convert the thumbnail to a data URL
+      const thumbnailDataURL = thumbnailCanvas.toDataURL('image/jpeg', 0.8);
+  
+      // Create a link to download the thumbnail
+      const link = document.createElement('a');
+      link.href = thumbnailDataURL;
+      link.download = 'thumbnail.jpg';
+      link.click();
+    };
   };
 
   const downloadCanvas = () => {
@@ -893,234 +956,300 @@ function App() {
 
   // The JSX return remains exactly the same as in your current code
   return (
-    <div className="app-container">
-      <div className="toolbar">
-        <h3>Tools</h3>
-        <div className="tool-section">
-          <button onClick={addText}>Add Text</button>
-          <div className="shapes-submenu">
-            <button onClick={addRectangle}>Rectangle</button>
-            <button onClick={addCircle}>Circle</button>
-            <button onClick={addEllipse}>Ellipse</button>
-            <button onClick={addTriangle}>Triangle</button>
-            <button onClick={() => addPolygon(5)}>Pentagon</button>
-            <button onClick={() => addPolygon(6)}>Hexagon</button>
-            <button onClick={() => addPolygon(8)}>Octagon</button>
-            <button onClick={() => addStar(5)}>Star</button>
-            <button onClick={addDiamond}>Diamond</button>
-            <button onClick={addHeart}>Heart</button>
-            <button onClick={addLine}>Line</button>
-            <button onClick={addArrow}>Arrow</button>
-            <button onClick={addCross}>Cross</button>
-            <button onClick={addSpeechBubble}>Speech Bubble</button>
-            <button onClick={addDonut}>Donut</button>
-            <button onClick={addCloud}>Cloud</button>
-            <button onClick={addStarburst}>Starburst</button>
-            <button onClick={addGear}>Gear</button>
-            <button onClick={addSmiley}>Smiley Face</button>
-            <button onClick={() => addCustomPolygon(7)}>Heptagon</button>
-            <button onClick={() => addCustomPolygon(9)}>Nonagon</button>
-            <button onClick={() => addCustomPolygon(8, true)}>Star Octagon</button>
 
+    <div className="page-wrapper">
+      <div className="ad-top">Ad Top</div>
+
+      <div className="content-wrapper">
+        <div className="ad-left">Ad Left</div>
+
+        <div className="app-container">
+          <div className="toolbar">
+            <h3>Tools</h3>
+
+
+            <div className="tool-section">
+{/* 
+              <button onClick={addText} className="tool-button">
+                <i className="fas fa-font"></i>
+                <span>Text</span>
+              </button> */}
+              <div className="shapes-submenu">
+  <button onClick={addText} className="tool-button">
+    <i className="fa-solid fa-font"></i>
+  </button>
+  <button onClick={addRectangle} className="tool-button">
+    <i className="fa-solid fa-square"></i>
+  </button>
+  <button onClick={addCircle} className="tool-button">
+    <i className="fa-solid fa-circle"></i>
+  </button>
+  <button onClick={addEllipse} className="tool-button">
+    <i className="fa-solid fa-circle-dot"></i>
+  </button>
+  <button onClick={addTriangle} className="tool-button">
+    <i className="fa-solid fa-play"></i>
+  </button>
+
+  <button onClick={() => addPolygon(5)} className="tool-button" title="Pentagon">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-pentagon">
+      <polygon points="12 2 22 8.5 18 20 6 20 2 8.5 12 2"></polygon>
+    </svg>
+  </button>
+  <button onClick={() => addPolygon(6)} className="tool-button" title="Hexagon">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-hexagon">
+    <polygon points="19 4 5 4 1 12 5 20 19 20 23 12"></polygon>
+  </svg>
+</button>
+  <button onClick={() => addPolygon(8)} className="tool-button" title="Octagon">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-octagon">
+      <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon>
+    </svg>
+  </button>
+
+  <button onClick={() => addStar(5)} className="tool-button">
+    <i className="fa-solid fa-star"></i>
+  </button>
+  <button onClick={addDiamond} className="tool-button">
+    <i className="fa-solid fa-diamond"></i>
+  </button>
+  <button onClick={addHeart} className="tool-button">
+    <i className="fa-solid fa-heart"></i>
+  </button>
+  <button onClick={addLine} className="tool-button">
+    <i className="fa-solid fa-minus"></i>
+  </button>
+  <button onClick={addArrow} className="tool-button">
+    <i className="fa-solid fa-arrow-right"></i>
+  </button>
+  <button onClick={addCross} className="tool-button">
+    <i className="fa-solid fa-plus"></i>
+  </button>
+  <button onClick={addSpeechBubble} className="tool-button">
+    <i className="fa-solid fa-comment"></i>
+  </button>
+  <button onClick={addDonut} className="tool-button">
+    <i className="fa-solid fa-circle-dot"></i>
+  </button>
+  <button onClick={addCloud} className="tool-button">
+    <i className="fa-solid fa-cloud"></i>
+  </button>
+  <button onClick={addStarburst} className="tool-button">
+    <i className="fa-solid fa-sun"></i>
+  </button>
+  <button onClick={addGear} className="tool-button">
+    <i className="fa-solid fa-gear"></i>
+  </button>
+  <button onClick={addSmiley} className="tool-button">
+    <i className="fa-solid fa-face-smile"></i>
+  </button>
+</div>
+            </div>
+
+            {activeObject && (
+              activeObject.type === 'textbox' ||
+              activeObject.type === 'text' ||
+              activeObject.type === 'i-text' ||
+              activeObject instanceof Textbox
+            ) && (
+                <div className="text-formatting">
+                  <div className="tool-section">
+                    <label>Font Family</label>
+                    <select
+                      value={activeObject.fontFamily}
+                      onChange={(e) => updateTextStyle('font', e.target.value)}
+                    >
+                      {FONTS.map(font => (
+                        <option key={font} value={font} style={{ fontFamily: font }}>
+                          {font}
+                        </option>
+                      ))}
+                    </select>
+
+                    <label>Font Size</label>
+                    <input
+                      type="number"
+                      value={activeObject?.fontSize || 20}
+                      onChange={(e) => updateTextStyle('size', e.target.value)}
+                      onKeyUp={(e) => updateTextStyle('size', e.target.value)}
+                      min="8"
+                      max="200"
+                    />
+
+                    <label>Line Height</label>
+                    <input
+                      type="number"
+                      value={activeObject?.lineHeight || 1}
+                      onChange={(e) => updateTextStyle('lineHeight', e.target.value)}
+                      onKeyUp={(e) => updateTextStyle('lineHeight', e.target.value)}
+                      min="0.1"
+                      max="10"
+                      step="0.1"
+                    />
+
+                    <label>Letter Spacing</label>
+                    <input
+                      type="number"
+                      value={activeObject?.charSpacing || 0}
+                      onChange={(e) => updateTextStyle('charSpacing', e.target.value)}
+                      onKeyUp={(e) => updateTextStyle('charSpacing', e.target.value)}
+                      min="-100"
+                      max="1000"
+                    />
+
+
+
+                    <div className="text-controls">
+                      <button
+                        className={fontStyle.bold ? 'active' : ''}
+                        onClick={() => updateTextStyle('bold', !fontStyle.bold)}
+                        title="Bold"
+                      >
+                        <i className="fas fa-bold"></i>
+                      </button>
+                      <button
+                        className={fontStyle.italic ? 'active' : ''}
+                        onClick={() => updateTextStyle('italic', !fontStyle.italic)}
+                        title="Italic"
+                      >
+                        <i className="fas fa-italic"></i>
+                      </button>
+                      <button
+                        className={fontStyle.underline ? 'active' : ''}
+                        onClick={() => updateTextStyle('underline', !fontStyle.underline)}
+                        title="Underline"
+                      >
+                        <i className="fas fa-underline"></i>
+                      </button>
+                    </div>
+
+                    <div className="text-align">
+                      <button
+                        className={textAlign === 'left' ? 'active' : ''}
+                        onClick={() => updateTextStyle('align', 'left')}
+                        title="Align Left"
+                      >
+                        <i className="fas fa-align-left"></i>
+                      </button>
+                      <button
+                        className={textAlign === 'center' ? 'active' : ''}
+                        onClick={() => updateTextStyle('align', 'center')}
+                        title="Align Center"
+                      >
+                        <i className="fas fa-align-center"></i>
+                      </button>
+                      <button
+                        className={textAlign === 'right' ? 'active' : ''}
+                        onClick={() => updateTextStyle('align', 'right')}
+                        title="Align Right"
+                      >
+                        <i className="fas fa-align-right"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="tool-section">
+                    <label>Text Color</label>
+                    <input
+                      type="color"
+                      value={activeObject.fill}
+                      onChange={(e) => updateTextStyle('color', e.target.value)}
+                    />
+
+                    <label>Background Color</label>
+                    <input
+                      type="color"
+                      value={activeObject.backgroundColor || '#ffffff'}
+                      onChange={(e) => updateTextStyle('backgroundColor', e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+            {activeObject && (
+              activeObject.type === 'rect' ||
+              activeObject.type === 'circle' ||
+              activeObject.type === 'triangle' ||
+              activeObject.type === 'path') && (
+                <div className="shape-formatting tool-section">
+                  <label>Fill Color</label>
+                  <input
+                    type="color"
+                    value={activeObject.fill}
+                    onChange={(e) => updateShapeStyle('fill', e.target.value)}
+                  />
+
+                  <label>Stroke Color</label>
+                  <input
+                    type="color"
+                    value={activeObject.stroke}
+                    onChange={(e) => updateShapeStyle('stroke', e.target.value)}
+                  />
+
+                  <label>Stroke Width</label>
+                  <input
+                    type="number"
+                    value={activeObject.strokeWidth}
+                    onChange={(e) => updateShapeStyle('strokeWidth', e.target.value)}
+                    min="0"
+                    max="50"
+                  />
+
+                  <label>Opacity</label>
+                  <input
+                    type="range"
+                    value={activeObject.opacity || 1}
+                    onChange={(e) => updateShapeStyle('opacity', e.target.value)}
+                    min="0"
+                    max="1"
+                    step="0.1"
+                  />
+                </div>
+              )}
+
+            <div className="tool-section">
+              <label>Upload Image</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={addImage}
+              />
+            </div>
+
+            <div className="tool-section">
+              <label>Canvas Scale</label>
+              <select
+                className="scale-select"
+                value={canvasScale}
+                onChange={(e) => handleScaleChange(Number(e.target.value))}
+              >
+                <option value={0.25}>25%</option>
+                <option value={0.5}>50%</option>
+                <option value={0.75}>75%</option>
+                <option value={1}>100%</option>
+              </select>
+              <button onClick={toggleOrientation}>
+                {isLandscape ? "Switch to Portrait (720×1280)" : "Switch to Landscape (1280×720)"}
+              </button>
+              <button onClick={deleteSelected} disabled={!activeObject}>
+                Delete Selected
+              </button>
+              <button onClick={downloadCanvas}>Download as PNG</button>
+              <button onClick={downloadThumbnail}>Download Thumbnail</button>
+              <button onClick={clearCanvas}>Clear Canvas</button>
+            </div>
+          </div>
+          <div className="canvas-container">
+            <canvas ref={canvasRef} id="canvas" />
           </div>
         </div>
 
-        {activeObject && (
-          activeObject.type === 'textbox' ||
-          activeObject.type === 'text' ||
-          activeObject.type === 'i-text' ||
-          activeObject instanceof Textbox
-        ) && (
-            <div className="text-formatting">
-              <div className="tool-section">
-                <label>Font Family</label>
-                <select
-                  value={activeObject.fontFamily}
-                  onChange={(e) => updateTextStyle('font', e.target.value)}
-                >
-                  {FONTS.map(font => (
-                    <option key={font} value={font} style={{ fontFamily: font }}>
-                      {font}
-                    </option>
-                  ))}
-                </select>
-
-                <label>Font Size</label>
-                <input
-                  type="number"
-                  value={activeObject?.fontSize || 20}
-                  onChange={(e) => updateTextStyle('size', e.target.value)}
-                  onKeyUp={(e) => updateTextStyle('size', e.target.value)}
-                  min="8"
-                  max="200"
-                />
-
-                <label>Line Height</label>
-                <input
-                  type="number"
-                  value={activeObject?.lineHeight || 1}
-                  onChange={(e) => updateTextStyle('lineHeight', e.target.value)}
-                  onKeyUp={(e) => updateTextStyle('lineHeight', e.target.value)}
-                  min="0.1"
-                  max="10"
-                  step="0.1"
-                />
-
-                <label>Letter Spacing</label>
-                <input
-                  type="number"
-                  value={activeObject?.charSpacing || 0}
-                  onChange={(e) => updateTextStyle('charSpacing', e.target.value)}
-                  onKeyUp={(e) => updateTextStyle('charSpacing', e.target.value)}
-                  min="-100"
-                  max="1000"
-                />
-
-
-
-                <div className="text-controls">
-                  <button
-                    className={fontStyle.bold ? 'active' : ''}
-                    onClick={() => updateTextStyle('bold', !fontStyle.bold)}
-                    title="Bold"
-                  >
-                    B
-                  </button>
-                  <button
-                    className={fontStyle.italic ? 'active' : ''}
-                    onClick={() => updateTextStyle('italic', !fontStyle.italic)}
-                    title="Italic"
-                  >
-                    I
-                  </button>
-                  <button
-                    className={fontStyle.underline ? 'active' : ''}
-                    onClick={() => updateTextStyle('underline', !fontStyle.underline)}
-                    title="Underline"
-                  >
-                    U
-                  </button>
-                </div>
-
-                <div className="text-align">
-                  <button
-                    className={textAlign === 'left' ? 'active' : ''}
-                    onClick={() => updateTextStyle('align', 'left')}
-                    title="Align Left"
-                  >
-                    ←
-                  </button>
-                  <button
-                    className={textAlign === 'center' ? 'active' : ''}
-                    onClick={() => updateTextStyle('align', 'center')}
-                    title="Align Center"
-                  >
-                    ↔
-                  </button>
-                  <button
-                    className={textAlign === 'right' ? 'active' : ''}
-                    onClick={() => updateTextStyle('align', 'right')}
-                    title="Align Right"
-                  >
-                    →
-                  </button>
-                </div>
-              </div>
-
-              <div className="tool-section">
-                <label>Text Color</label>
-                <input
-                  type="color"
-                  value={activeObject.fill}
-                  onChange={(e) => updateTextStyle('color', e.target.value)}
-                />
-
-                <label>Background Color</label>
-                <input
-                  type="color"
-                  value={activeObject.backgroundColor || '#ffffff'}
-                  onChange={(e) => updateTextStyle('backgroundColor', e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-        {activeObject && (
-          activeObject.type === 'rect' ||
-          activeObject.type === 'circle' ||
-          activeObject.type === 'triangle' ||
-          activeObject.type === 'path') && (
-            <div className="shape-formatting tool-section">
-              <label>Fill Color</label>
-              <input
-                type="color"
-                value={activeObject.fill}
-                onChange={(e) => updateShapeStyle('fill', e.target.value)}
-              />
-
-              <label>Stroke Color</label>
-              <input
-                type="color"
-                value={activeObject.stroke}
-                onChange={(e) => updateShapeStyle('stroke', e.target.value)}
-              />
-
-              <label>Stroke Width</label>
-              <input
-                type="number"
-                value={activeObject.strokeWidth}
-                onChange={(e) => updateShapeStyle('strokeWidth', e.target.value)}
-                min="0"
-                max="50"
-              />
-
-              <label>Opacity</label>
-              <input
-                type="range"
-                value={activeObject.opacity || 1}
-                onChange={(e) => updateShapeStyle('opacity', e.target.value)}
-                min="0"
-                max="1"
-                step="0.1"
-              />
-            </div>
-          )}
-
-        <div className="tool-section">
-          <label>Upload Image</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={addImage}
-          />
-        </div>
-
-        <div className="tool-section">
-          <label>Canvas Scale</label>
-          <select 
-    className="scale-select"
-    value={canvasScale} 
-    onChange={(e) => handleScaleChange(Number(e.target.value))}
-  >
-    <option value={0.25}>25%</option>
-    <option value={0.5}>50%</option>
-    <option value={0.75}>75%</option>
-    <option value={1}>100%</option>
-  </select>
-  <button onClick={toggleOrientation}>
-    {isLandscape ? "Switch to Portrait (720×1280)" : "Switch to Landscape (1280×720)"}
-  </button>
-          <button onClick={deleteSelected} disabled={!activeObject}>
-            Delete Selected
-          </button>
-          <button onClick={downloadCanvas}>Download as PNG</button>
-          <button onClick={clearCanvas}>Clear Canvas</button>
-        </div>
+        <div className="ad-right">Ad Right</div>
       </div>
-      <div className="canvas-container">
-        <canvas ref={canvasRef} id="canvas" />
-      </div>
+
+      <div className="ad-bottom">Ad Bottom</div>
     </div>
+
   );
 }
 
