@@ -47,6 +47,36 @@ body, html {
   width: 250px;
   background-color: #f0f0f0;
 }
+/* Add this to your existing CSS */
+.toolbar.horizontal {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
+  padding: 10px;
+  background-color: #f0f0f0;
+  position: relative;
+  top: 0;
+  left: 0;
+  border-top: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+}
+
+.toolbar.horizontal .tool-section {
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: flex;
+  align-items: center;
+}
+
+.toolbar.horizontal .tool-section label,
+.toolbar.horizontal .tool-section input,
+.toolbar.horizontal .tool-section select,
+.toolbar.horizontal .tool-section button {
+  margin: 0 5px;
+}
 
 .toolbar select.scale-select {
   width: auto;
@@ -115,7 +145,9 @@ body, html {
   padding-bottom: 10px;
   border-bottom: 1px solid #ccc;
 }
-
+.landscape-icon {
+  transform: rotate(90deg);
+}
 .text-formatting {
   margin-top: 15px;
 }

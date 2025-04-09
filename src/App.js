@@ -52,27 +52,49 @@ function App() {
       setCanvasScale(newScale);
     });
   };
-
-  const toggleOrientation = () => {
+  const switchToLandscape = () => {
     if (!fabricCanvasRef.current) return;
 
-    // Get the current canvas content as JSON
     const canvasJSON = fabricCanvasRef.current.toJSON();
+    console.log('Canvas JSON:', canvasJSON);
 
-    // Update dimensions with current scale
-    const width = (!isLandscape ? 1280 : 720) * canvasScale;
-    const height = (!isLandscape ? 720 : 1280) * canvasScale;
+    const width = 1280 * canvasScale;
+    const height = 720 * canvasScale;
+    console.log(`Setting dimensions to width: ${width}, height: ${height}`);
 
     fabricCanvasRef.current.setDimensions({
       width: width,
       height: height
     });
 
-    // Load the saved content back
     fabricCanvasRef.current.loadFromJSON(canvasJSON, () => {
       fabricCanvasRef.current.setZoom(canvasScale);
       fabricCanvasRef.current.requestRenderAll();
-      setIsLandscape(!isLandscape);
+      console.log('Canvas re-rendered');
+      setIsLandscape(true);
+    });
+  };
+
+  const switchToPortrait = () => {
+    if (!fabricCanvasRef.current) return;
+
+    const canvasJSON = fabricCanvasRef.current.toJSON();
+    console.log('Canvas JSON:', canvasJSON);
+
+    const width = 720 * canvasScale;
+    const height = 1280 * canvasScale;
+    console.log(`Setting dimensions to width: ${width}, height: ${height}`);
+
+    fabricCanvasRef.current.setDimensions({
+      width: width,
+      height: height
+    });
+
+    fabricCanvasRef.current.loadFromJSON(canvasJSON, () => {
+      fabricCanvasRef.current.setZoom(canvasScale);
+      fabricCanvasRef.current.requestRenderAll();
+      console.log('Canvas re-rendered');
+      setIsLandscape(false);
     });
   };
 
@@ -767,30 +789,30 @@ function App() {
 
   const downloadThumbnail = () => {
     if (!fabricCanvasRef.current) return;
-  
+
     // Get the canvas data as a data URL
     const dataURL = fabricCanvasRef.current.toDataURL({
       format: 'jpeg',
       quality: 0.8 // Adjust quality to reduce size
     });
-  
+
     // Create an image element
     const img = new Image();
     img.src = dataURL;
-  
+
     img.onload = () => {
       // Create a canvas to resize the image
       const thumbnailCanvas = document.createElement('canvas');
       const ctx = thumbnailCanvas.getContext('2d');
-  
+
       // Set the desired thumbnail size
       const maxWidth = 300; // Adjust as needed
       const maxHeight = 300; // Adjust as needed
-  
+
       // Calculate the new dimensions
       let width = img.width;
       let height = img.height;
-  
+
       if (width > height) {
         if (width > maxWidth) {
           height *= maxWidth / width;
@@ -802,16 +824,16 @@ function App() {
           height = maxHeight;
         }
       }
-  
+
       thumbnailCanvas.width = width;
       thumbnailCanvas.height = height;
-  
+
       // Draw the resized image
       ctx.drawImage(img, 0, 0, width, height);
-  
+
       // Convert the thumbnail to a data URL
       const thumbnailDataURL = thumbnailCanvas.toDataURL('image/jpeg', 0.8);
-  
+
       // Create a link to download the thumbnail
       const link = document.createElement('a');
       link.href = thumbnailDataURL;
@@ -969,81 +991,81 @@ function App() {
 
 
             <div className="tool-section">
-{/* 
+              {/* 
               <button onClick={addText} className="tool-button">
                 <i className="fas fa-font"></i>
                 <span>Text</span>
               </button> */}
               <div className="shapes-submenu">
-  <button onClick={addText} className="tool-button">
-    <i className="fa-solid fa-font"></i>
-  </button>
-  <button onClick={addRectangle} className="tool-button">
-    <i className="fa-solid fa-square"></i>
-  </button>
-  <button onClick={addCircle} className="tool-button">
-    <i className="fa-solid fa-circle"></i>
-  </button>
-  <button onClick={addEllipse} className="tool-button">
-    <i className="fa-solid fa-circle-dot"></i>
-  </button>
-  <button onClick={addTriangle} className="tool-button">
-    <i className="fa-solid fa-play"></i>
-  </button>
+                <button onClick={addText} className="tool-button">
+                  <i className="fa-solid fa-font"></i>
+                </button>
+                <button onClick={addRectangle} className="tool-button">
+                  <i className="fa-solid fa-square"></i>
+                </button>
+                <button onClick={addCircle} className="tool-button">
+                  <i className="fa-solid fa-circle"></i>
+                </button>
+                <button onClick={addEllipse} className="tool-button">
+                  <i className="fa-solid fa-circle-dot"></i>
+                </button>
+                <button onClick={addTriangle} className="tool-button">
+                  <i className="fa-solid fa-play"></i>
+                </button>
 
-  <button onClick={() => addPolygon(5)} className="tool-button" title="Pentagon">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-pentagon">
-      <polygon points="12 2 22 8.5 18 20 6 20 2 8.5 12 2"></polygon>
-    </svg>
-  </button>
-  <button onClick={() => addPolygon(6)} className="tool-button" title="Hexagon">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-hexagon">
-    <polygon points="19 4 5 4 1 12 5 20 19 20 23 12"></polygon>
-  </svg>
-</button>
-  <button onClick={() => addPolygon(8)} className="tool-button" title="Octagon">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-octagon">
-      <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon>
-    </svg>
-  </button>
+                <button onClick={() => addPolygon(5)} className="tool-button" title="Pentagon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-pentagon">
+                    <polygon points="12 2 22 8.5 18 20 6 20 2 8.5 12 2"></polygon>
+                  </svg>
+                </button>
+                <button onClick={() => addPolygon(6)} className="tool-button" title="Hexagon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-hexagon">
+                    <polygon points="19 4 5 4 1 12 5 20 19 20 23 12"></polygon>
+                  </svg>
+                </button>
+                <button onClick={() => addPolygon(8)} className="tool-button" title="Octagon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="icon-octagon">
+                    <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon>
+                  </svg>
+                </button>
 
-  <button onClick={() => addStar(5)} className="tool-button">
-    <i className="fa-solid fa-star"></i>
-  </button>
-  <button onClick={addDiamond} className="tool-button">
-    <i className="fa-solid fa-diamond"></i>
-  </button>
-  <button onClick={addHeart} className="tool-button">
-    <i className="fa-solid fa-heart"></i>
-  </button>
-  <button onClick={addLine} className="tool-button">
-    <i className="fa-solid fa-minus"></i>
-  </button>
-  <button onClick={addArrow} className="tool-button">
-    <i className="fa-solid fa-arrow-right"></i>
-  </button>
-  <button onClick={addCross} className="tool-button">
-    <i className="fa-solid fa-plus"></i>
-  </button>
-  <button onClick={addSpeechBubble} className="tool-button">
-    <i className="fa-solid fa-comment"></i>
-  </button>
-  <button onClick={addDonut} className="tool-button">
-    <i className="fa-solid fa-circle-dot"></i>
-  </button>
-  <button onClick={addCloud} className="tool-button">
-    <i className="fa-solid fa-cloud"></i>
-  </button>
-  <button onClick={addStarburst} className="tool-button">
-    <i className="fa-solid fa-sun"></i>
-  </button>
-  <button onClick={addGear} className="tool-button">
-    <i className="fa-solid fa-gear"></i>
-  </button>
-  <button onClick={addSmiley} className="tool-button">
-    <i className="fa-solid fa-face-smile"></i>
-  </button>
-</div>
+                <button onClick={() => addStar(5)} className="tool-button">
+                  <i className="fa-solid fa-star"></i>
+                </button>
+                <button onClick={addDiamond} className="tool-button">
+                  <i className="fa-solid fa-diamond"></i>
+                </button>
+                <button onClick={addHeart} className="tool-button">
+                  <i className="fa-solid fa-heart"></i>
+                </button>
+                <button onClick={addLine} className="tool-button">
+                  <i className="fa-solid fa-minus"></i>
+                </button>
+                <button onClick={addArrow} className="tool-button">
+                  <i className="fa-solid fa-arrow-right"></i>
+                </button>
+                <button onClick={addCross} className="tool-button">
+                  <i className="fa-solid fa-plus"></i>
+                </button>
+                <button onClick={addSpeechBubble} className="tool-button">
+                  <i className="fa-solid fa-comment"></i>
+                </button>
+                <button onClick={addDonut} className="tool-button">
+                  <i className="fa-solid fa-circle-dot"></i>
+                </button>
+                <button onClick={addCloud} className="tool-button">
+                  <i className="fa-solid fa-cloud"></i>
+                </button>
+                <button onClick={addStarburst} className="tool-button">
+                  <i className="fa-solid fa-sun"></i>
+                </button>
+                <button onClick={addGear} className="tool-button">
+                  <i className="fa-solid fa-gear"></i>
+                </button>
+                <button onClick={addSmiley} className="tool-button">
+                  <i className="fa-solid fa-face-smile"></i>
+                </button>
+              </div>
             </div>
 
             {activeObject && (
@@ -1228,15 +1250,27 @@ function App() {
                 <option value={0.75}>75%</option>
                 <option value={1}>100%</option>
               </select>
-              <button onClick={toggleOrientation}>
-                {isLandscape ? "Switch to Portrait (720×1280)" : "Switch to Landscape (1280×720)"}
+              <div className="shapes-submenu">
+              <button onClick={switchToLandscape} title="Switch to Landscape (1280×720)" className="icon-button tool-button">
+                <i className="fa-solid fa-mobile-alt landscape-icon"></i>
               </button>
-              <button onClick={deleteSelected} disabled={!activeObject}>
-                Delete Selected
+              <button onClick={switchToPortrait} title="Switch to Portrait (720×1280)" className="icon-button tool-button">
+                <i className="fa-solid fa-mobile"></i>
               </button>
-              <button onClick={downloadCanvas}>Download as PNG</button>
-              <button onClick={downloadThumbnail}>Download Thumbnail</button>
-              <button onClick={clearCanvas}>Clear Canvas</button>
+
+              <button onClick={deleteSelected} disabled={!activeObject} title="Delete Selected" className="tool-button">
+                <i className="fa-solid fa-trash"></i>
+              </button>
+              <button onClick={clearCanvas} title="Clear Canvas" className="tool-button">
+                <i className="fa-solid fa-eraser"></i>
+              </button>
+              <button onClick={downloadCanvas} title="Download as PNG" className="tool-button">
+                <i className="fa-solid fa-download"></i>
+              </button>
+              <button onClick={downloadThumbnail} title="Download Thumbnail" className="tool-button">
+                <i className="fa-solid fa-image"></i>
+              </button>
+              </div>
             </div>
           </div>
           <div className="canvas-container">
