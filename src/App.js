@@ -1,11 +1,26 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
-  fabric,
-  Canvas, Textbox, Rect, Circle, Triangle, Path, Image as FabricImage, Ellipse, Line,
+  Canvas,
+  Textbox,
+  Rect,
+  Circle,
+  Triangle,
+  Path,
+  Image as FabricImage,
+  Ellipse,
+  Line,
   ActiveSelection,
-  Group
+  Group,
+  util // Add this line to access fabric.util
 } from 'fabric';
 import './App.css';
+import ReactGA from 'react-ga4';
+
+// Initialize with your GA4 measurement ID
+ReactGA.initialize('G-LJBMXKDXY9');
+
+// Track a page view
+ReactGA.send({ hitType: "pageview", page: window.location.pathname + window.location.search });
 
 // Common fonts list
 const FONTS = [
@@ -31,11 +46,16 @@ function App() {
 
   const [canvasScale, setCanvasScale] = useState(1);
 
+
   const handleScaleChange = (newScale) => {
     if (!fabricCanvasRef.current) return;
 
     // Store current canvas state
-    const canvasJSON = fabricCanvasRef.current.toJSON();
+    const objects = fabricCanvasRef.current.getObjects();
+    const activeObject = fabricCanvasRef.current.getActiveObject();
+    const viewportTransform = fabricCanvasRef.current.viewportTransform;
+
+    // Calculate new dimensions
     const width = isLandscape ? 1280 : 720;
     const height = isLandscape ? 720 : 1280;
 
@@ -45,83 +65,110 @@ function App() {
       height: height * newScale
     });
 
-    // Load content back and scale it
-    fabricCanvasRef.current.loadFromJSON(canvasJSON, () => {
-      fabricCanvasRef.current.setZoom(newScale);
-      fabricCanvasRef.current.requestRenderAll();
-      setCanvasScale(newScale);
+    // Scale all objects proportionally
+    const scaleRatio = newScale / canvasScale;
+    objects.forEach(obj => {
+      obj.scaleX = obj.scaleX * scaleRatio;
+      obj.scaleY = obj.scaleY * scaleRatio;
+      obj.left = obj.left * scaleRatio;
+      obj.top = obj.top * scaleRatio;
+      obj.setCoords();
     });
+
+    // Restore viewport state
+    fabricCanvasRef.current.setZoom(newScale);
+    if (viewportTransform) {
+      fabricCanvasRef.current.viewportTransform = [...viewportTransform];
+    }
+
+    // Restore active object
+    if (activeObject) {
+      fabricCanvasRef.current.setActiveObject(activeObject);
+    }
+
+    fabricCanvasRef.current.requestRenderAll();
+    setCanvasScale(newScale);
   };
-  const switchToLandscape = () => {
+
+  const safeCanvasOperation = async (operation) => {
     if (!fabricCanvasRef.current) return;
 
-    const canvasJSON = fabricCanvasRef.current.toJSON();
-    console.log('Canvas JSON:', canvasJSON);
-
-    const width = 1280 * canvasScale;
-    const height = 720 * canvasScale;
-    console.log(`Setting dimensions to width: ${width}, height: ${height}`);
-
-    fabricCanvasRef.current.setDimensions({
-      width: width,
-      height: height
-    });
-
-    fabricCanvasRef.current.loadFromJSON(canvasJSON, () => {
-      fabricCanvasRef.current.setZoom(canvasScale);
+    try {
+      // Disable rendering during batch operations
+      fabricCanvasRef.current.renderOnAddRemove = false;
+      await operation();
+    } catch (error) {
+      console.error('Canvas operation failed:', error);
+      throw error;
+    } finally {
+      // Always re-enable rendering
+      fabricCanvasRef.current.renderOnAddRemove = true;
       fabricCanvasRef.current.requestRenderAll();
-      console.log('Canvas re-rendered');
-      setIsLandscape(true);
-    });
+    }
+  };
+
+
+
+  // Keep the wrapper functions simple
+  const switchToLandscape = () => {
+    console.log('Attempting to switch to landscape');
+    switchOrientation(true);
   };
 
   const switchToPortrait = () => {
-    if (!fabricCanvasRef.current) return;
-
-    const canvasJSON = fabricCanvasRef.current.toJSON();
-    console.log('Canvas JSON:', canvasJSON);
-
-    const width = 720 * canvasScale;
-    const height = 1280 * canvasScale;
-    console.log(`Setting dimensions to width: ${width}, height: ${height}`);
-
-    fabricCanvasRef.current.setDimensions({
-      width: width,
-      height: height
-    });
-
-    fabricCanvasRef.current.loadFromJSON(canvasJSON, () => {
-      fabricCanvasRef.current.setZoom(canvasScale);
-      fabricCanvasRef.current.requestRenderAll();
-      console.log('Canvas re-rendered');
-      setIsLandscape(false);
-    });
+    console.log('Attempting to switch to portrait');
+    switchOrientation(false);
   };
 
+  const handleOrientationSwitch = async (newIsLandscape) => {
+    try {
+      await switchOrientation(newIsLandscape);
+    } catch (error) {
+      // Implement your error UI here
+      console.error("Orientation switch failed:", error);
+    }
+  };
+
+  const saveCanvasState = () => {
+    if (!fabricCanvasRef.current) return;
+    const objects = fabricCanvasRef.current.getObjects().map(obj => obj.toObject());
+    console.log('Saving objects:', objects); // Log objects being saved
+    if (objects.length > 0) {
+      localStorage.setItem('canvasState', JSON.stringify(objects));
+    } else {
+      console.log('No objects to save.');
+    }
+  };
+
+
   useEffect(() => {
-    if (!canvasRef.current) {
-      console.error('Canvas ref is not attached');
-      return;
+    if (!canvasRef.current) return;
+
+    let canvas = fabricCanvasRef.current;
+
+    if (canvas) {
+      canvas.renderOnAddRemove = false;
+      canvas.dispose();
+      canvas = null;
     }
 
-    // Initialize canvas with scaled dimensions
     const baseWidth = isLandscape ? 1280 : 720;
     const baseHeight = isLandscape ? 720 : 1280;
+    const width = baseWidth * canvasScale;
+    const height = baseHeight * canvasScale;
 
-
-    // Initialize canvas
-    const canvas = new Canvas(canvasRef.current, {
-      width: isLandscape ? 1280 : 720,
-      height: isLandscape ? 720 : 1280,
+    const newCanvas = new Canvas(canvasRef.current, {
+      width,
+      height,
       backgroundColor: '#ffffff',
       selection: true,
       selectionColor: 'rgba(100, 100, 255, 0.3)',
-      selectionLineWidth: 1,
       preserveObjectStacking: true
     });
 
-    // Configure prototype defaults using the imported classes
-    Object.assign(Canvas.prototype, {
+    fabricCanvasRef.current = newCanvas;
+
+    newCanvas.set({
       transparentCorners: false,
       borderColor: 'rgba(100, 100, 255, 0.8)',
       cornerColor: 'rgba(100, 100, 255, 0.8)',
@@ -129,140 +176,110 @@ function App() {
       objectCaching: false
     });
 
-    // Add this right after creating the canvas in useEffect
-    canvas.on('mouse:down', (options) => {
-      if (options.target || options.e.target.tagName === 'INPUT' || options.e.target.tagName === 'SELECT') {
-        return; // Keep selection if clicking on an object or input/select elements
-      }
-    });
-    Object.assign(Textbox.prototype, {
-      editingBorderColor: 'rgba(100, 100, 255, 0.8)'
-    });
 
-    canvas.setZoom(canvasScale);
-    fabricCanvasRef.current = canvas;
-    // Force initial render to show background
-    canvas.requestRenderAll();
 
-    // Handle window resize
-    const handleResize = () => {
-      if (fabricCanvasRef.current) {
-        const width = isLandscape ? 1280 : 720;
-        const height = isLandscape ? 720 : 1280;
+    newCanvas.setZoom(canvasScale);
 
-        fabricCanvasRef.current.setDimensions({
-          width: width * canvasScale,
-          height: height * canvasScale
+    const storedObjects = JSON.parse(localStorage.getItem('canvasState') || '[]');
+    console.log('Loading objects:', storedObjects);
+
+
+
+    util.enlivenObjects(storedObjects).then((enlivenedObjects) => {
+      enlivenedObjects.forEach(enlivenedObj => {
+        enlivenedObj.set({
+          visible: true,
+          opacity: 1
         });
-        fabricCanvasRef.current.setZoom(canvasScale);
-        fabricCanvasRef.current.requestRenderAll();
-      }
-    };
+        newCanvas.add(enlivenedObj);
+        console.log('Object added to canvas:', enlivenedObj);
+      });
+      newCanvas.requestRenderAll();
+    }).catch((error) => {
+      console.error('Error enlivening objects:', error);
+    });
 
-    window.addEventListener('resize', handleResize);
-
-    // Selection handler
     const handleSelection = (e) => {
-      if (!fabricCanvasRef.current) {
-        setActiveObject(null);
-        return;
-      }
+      const activeObj = e?.selected?.[0] || e?.target || newCanvas.getActiveObject();
+      setActiveObject(activeObj || null);
 
-      const selected = e?.target || fabricCanvasRef.current.getActiveObject();
-      if (!selected?.type) {
-        setActiveObject(null);
-        return;
-      }
-
-      // Create new reference to avoid stale closures
-      const activeObj = fabricCanvasRef.current.getActiveObject();
-      setActiveObject(activeObj);
-
-      if (['textbox', 'text', 'i-text'].includes(selected.type)) {
-        setTextAlign(selected.textAlign || 'left');
+      if (activeObj?.type?.includes('text')) {
+        setTextAlign(activeObj.textAlign || 'left');
         setFontStyle({
-          bold: selected.fontWeight === 'bold',
-          italic: selected.fontStyle === 'italic',
-          underline: selected.underline || false
-        });
-
-        // Configure text object for better editing
-        activeObj.set({
-          selectable: true,
-          editable: true,
-          hasControls: true,
-          hasBorders: true,
-          editingBorderColor: 'rgba(100, 100, 255, 0.8)',
-          borderColor: 'rgba(100, 100, 255, 0.8)',
-          cornerColor: 'rgba(100, 100, 255, 0.8)',
-          cornerStyle: 'circle',
-          objectCaching: false
+          bold: activeObj.fontWeight === 'bold',
+          italic: activeObj.fontStyle === 'italic',
+          underline: activeObj.underline || false
         });
       }
-
-      fabricCanvasRef.current.requestRenderAll();
     };
 
-    // Prevent clearing selection when clicking on empty canvas area
-    canvas.on('mouse:down', (options) => {
-      if (options.target || options.subTargets?.length > 0) {
-        return; // Allow normal selection behavior for canvas objects
-      }
-      if (canvas.getActiveObjects().length > 0) {
-        options.e.preventDefault(); // Prevent clearing selection
-      }
-    });
-
-    // Set up event listeners
-    canvas.on('selection:created', (e) => {
-      if (e.selected?.[0]) {
-        handleSelection({ target: e.selected[0] });
-      } else if (e.target) {
-        handleSelection(e);
-      }
-    });
-
-    canvas.on('selection:updated', (e) => {
-      if (e.selected?.[0]) {
-        handleSelection({ target: e.selected[0] });
-      } else if (e.target) {
-        handleSelection(e);
-      }
-    });
-
-    canvas.on('selection:cleared', () => {
+    newCanvas.on('selection:created', handleSelection);
+    newCanvas.on('selection:updated', handleSelection);
+    newCanvas.on('selection:cleared', () => {
       setActiveObject(null);
       setTextAlign('left');
       setFontStyle({ bold: false, italic: false, underline: false });
     });
 
-    canvas.on('text:changed', (e) => {
-      if (e.target) {
-        setActiveObject(prev => ({ ...prev }));
-        fabricCanvasRef.current?.requestRenderAll();
-      }
-    });
-
-    canvas.on('object:modified', (e) => {
-      if (e.target) {
-        setActiveObject(prev => ({ ...prev }));
-        fabricCanvasRef.current?.requestRenderAll();
-      }
-    });
-
-    // Cleanup function
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      canvas.off('mouse:down');
-      canvas.off('selection:created');
-      canvas.off('selection:updated');
-      canvas.off('selection:cleared');
-      canvas.off('text:changed');
-      canvas.off('object:modified');
-      canvas.dispose();
-      fabricCanvasRef.current = null;
+    // Automatically save canvas state on object changes
+    const autoSaveCanvas = () => {
+      saveCanvasState();
     };
-  }, [isLandscape]);
+
+    newCanvas.on('object:added', autoSaveCanvas);
+    newCanvas.on('object:modified', autoSaveCanvas);
+    newCanvas.on('object:removed', autoSaveCanvas);
+
+    return () => {
+      if (fabricCanvasRef.current) {
+        fabricCanvasRef.current.off();
+        fabricCanvasRef.current.dispose();
+        fabricCanvasRef.current = null;
+      }
+    };
+  }, [isLandscape, canvasScale]);
+
+  const switchOrientation = (newIsLandscape) => {
+    if (!fabricCanvasRef.current) return;
+
+    try {
+      const canvas = fabricCanvasRef.current;
+
+      // Store current objects and their relative positions
+      const objects = canvas.getObjects().map(obj => ({
+        object: obj,
+        relativeX: obj.left / canvas.width,
+        relativeY: obj.top / canvas.height
+      }));
+
+      // Calculate new dimensions
+      const newWidth = newIsLandscape ? 1280 : 720;
+      const newHeight = newIsLandscape ? 720 : 1280;
+
+      // Set new dimensions
+      canvas.setDimensions({
+        width: newWidth * canvasScale,
+        height: newHeight * canvasScale
+      });
+
+      // Reposition objects using relative positions
+      objects.forEach(({ object, relativeX, relativeY }) => {
+        object.set({
+          left: relativeX * (newWidth * canvasScale),
+          top: relativeY * (newHeight * canvasScale)
+        });
+        object.setCoords();
+      });
+
+      // Update state and render
+      setIsLandscape(newIsLandscape);
+      canvas.requestRenderAll();
+
+    } catch (error) {
+      console.error('Error during orientation switch:', error);
+    }
+  };
+
 
   const addText = () => {
     if (!fabricCanvasRef.current) return;
@@ -309,6 +326,9 @@ function App() {
     });
     fabricCanvasRef.current.add(rect);
     fabricCanvasRef.current.setActiveObject(rect);
+    console.log('Rectangle added:', rect); // Log the added object
+    // saveCanvasState(); 
+
   };
 
   const addCircle = () => {
@@ -324,6 +344,8 @@ function App() {
     });
     fabricCanvasRef.current.add(circle);
     fabricCanvasRef.current.setActiveObject(circle);
+    console.log('Circle added:', circle); // Log the added object
+    // saveCanvasState(); 
   };
 
   const addTriangle = () => {
@@ -340,6 +362,7 @@ function App() {
     });
     fabricCanvasRef.current.add(triangle);
     fabricCanvasRef.current.setActiveObject(triangle);
+    // saveCanvasState(); 
   };
 
   const addPolygon = (sides = 6) => {
@@ -856,9 +879,14 @@ function App() {
 
   const clearCanvas = () => {
     if (!fabricCanvasRef.current) return;
+
     fabricCanvasRef.current.clear();
     fabricCanvasRef.current.backgroundColor = '#ffffff';
     fabricCanvasRef.current.requestRenderAll();
+
+    // Explicitly clear local storage
+    localStorage.removeItem('canvasState');
+    console.log('Canvas cleared and local storage updated.');
   };
 
 
@@ -985,18 +1013,13 @@ function App() {
       <div className="content-wrapper">
         <div className="ad-left">Ad Left</div>
 
-        <div className="app-container">
-          <div className="toolbar">
+        <div className={`app-container ${isLandscape ? 'landscape' : 'portrait'}`}>
+          <div className={`toolbar ${isLandscape ? 'landscape' : 'portrait'}`}>
             <h3>Tools</h3>
 
 
             <div className="tool-section">
-              {/* 
-              <button onClick={addText} className="tool-button">
-                <i className="fas fa-font"></i>
-                <span>Text</span>
-              </button> */}
-              <div className="shapes-submenu">
+              <div className="submenu shapes">
                 <button onClick={addText} className="tool-button">
                   <i className="fa-solid fa-font"></i>
                 </button>
@@ -1193,40 +1216,51 @@ function App() {
               activeObject.type === 'circle' ||
               activeObject.type === 'triangle' ||
               activeObject.type === 'path') && (
-                <div className="shape-formatting tool-section">
-                  <label>Fill Color</label>
-                  <input
-                    type="color"
-                    value={activeObject.fill}
-                    onChange={(e) => updateShapeStyle('fill', e.target.value)}
-                  />
+                <div className="shape-controls">
+  {/* Colors Section */}
+  <div className="colors-formatting tool-section">
+    <div className="color-pickers">
+      <div className="color-picker">
+        <label>Fill</label>
+        <input
+          type="color"
+          value={activeObject.fill}
+          onChange={(e) => updateShapeStyle('fill', e.target.value)}
+        />
+      </div>
+      <div className="color-picker">
+        <label>Stroke</label>
+        <input
+          type="color"
+          value={activeObject.stroke}
+          onChange={(e) => updateShapeStyle('stroke', e.target.value)}
+        />
+      </div>
+    </div>
+  </div>
 
-                  <label>Stroke Color</label>
-                  <input
-                    type="color"
-                    value={activeObject.stroke}
-                    onChange={(e) => updateShapeStyle('stroke', e.target.value)}
-                  />
+  {/* Shape Properties Section */}
+  <div className="properties-formatting tool-section">
+    <label>Stroke Width</label>
+    <input
+      type="number"
+      value={activeObject.strokeWidth}
+      onChange={(e) => updateShapeStyle('strokeWidth', e.target.value)}
+      min="0"
+      max="50"
+    />
 
-                  <label>Stroke Width</label>
-                  <input
-                    type="number"
-                    value={activeObject.strokeWidth}
-                    onChange={(e) => updateShapeStyle('strokeWidth', e.target.value)}
-                    min="0"
-                    max="50"
-                  />
-
-                  <label>Opacity</label>
-                  <input
-                    type="range"
-                    value={activeObject.opacity || 1}
-                    onChange={(e) => updateShapeStyle('opacity', e.target.value)}
-                    min="0"
-                    max="1"
-                    step="0.1"
-                  />
-                </div>
+    <label>Opacity</label>
+    <input
+  type="range"
+  value={activeObject.opacity || 1}
+  onChange={(e) => updateShapeStyle('opacity', parseFloat(e.target.value))}
+  min="0"
+  max="1"
+  step="0.01"
+/>
+  </div>
+</div>
               )}
 
             <div className="tool-section">
@@ -1236,9 +1270,7 @@ function App() {
                 accept="image/*"
                 onChange={addImage}
               />
-            </div>
 
-            <div className="tool-section">
               <label>Canvas Scale</label>
               <select
                 className="scale-select"
@@ -1250,26 +1282,40 @@ function App() {
                 <option value={0.75}>75%</option>
                 <option value={1}>100%</option>
               </select>
-              <div className="shapes-submenu">
-              <button onClick={switchToLandscape} title="Switch to Landscape (1280×720)" className="icon-button tool-button">
-                <i className="fa-solid fa-mobile-alt landscape-icon"></i>
-              </button>
-              <button onClick={switchToPortrait} title="Switch to Portrait (720×1280)" className="icon-button tool-button">
-                <i className="fa-solid fa-mobile"></i>
-              </button>
+            </div>
+            <div className="tool-section">
+              <div className="submenu other">
 
-              <button onClick={deleteSelected} disabled={!activeObject} title="Delete Selected" className="tool-button">
-                <i className="fa-solid fa-trash"></i>
-              </button>
-              <button onClick={clearCanvas} title="Clear Canvas" className="tool-button">
-                <i className="fa-solid fa-eraser"></i>
-              </button>
-              <button onClick={downloadCanvas} title="Download as PNG" className="tool-button">
-                <i className="fa-solid fa-download"></i>
-              </button>
-              <button onClick={downloadThumbnail} title="Download Thumbnail" className="tool-button">
-                <i className="fa-solid fa-image"></i>
-              </button>
+                <button
+                  onClick={switchToLandscape}
+                  title="Landscape (1280×720)"
+                  className={`tool-button ${isLandscape ? 'active' : 'inactive'}`}
+                  disabled={isLandscape}
+                >
+                  <i className="fa-solid fa-desktop"></i>
+                </button>
+
+                <button
+                  onClick={switchToPortrait}
+                  title="Portrait (720×1280)"
+                  className={`tool-button ${!isLandscape ? 'active' : 'inactive'}`}
+                  disabled={!isLandscape}
+                >
+                  <i className="fa-solid fa-mobile"></i>
+                </button>
+
+                <button onClick={deleteSelected} disabled={!activeObject} title="Delete Selected" className="tool-button">
+                  <i className="fa-solid fa-trash"></i>
+                </button>
+                <button onClick={clearCanvas} title="Clear Canvas" className="tool-button">
+                  <i className="fa-solid fa-eraser"></i>
+                </button>
+                <button onClick={downloadCanvas} title="Download as PNG" className="tool-button">
+                  <i className="fa-solid fa-download"></i>
+                </button>
+                <button onClick={downloadThumbnail} title="Download Thumbnail" className="tool-button">
+                  <i className="fa-solid fa-image"></i>
+                </button>
               </div>
             </div>
           </div>

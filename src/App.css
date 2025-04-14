@@ -41,34 +41,41 @@ body, html {
 .app-container {
   display: flex;
   flex-grow: 1;
+  /* Remove the fixed flex-direction, we'll control it in the mode-specific classes */
+  justify-content: center;
+  align-items: stretch;
+  overflow: hidden;
+}
+.app-container.portrait {
+  flex-direction: row; /* Side by side */
+}
+
+/* Landscape mode: toolbar top, canvas bottom */
+.app-container.landscape {
+  flex-direction: column; /* Stacked */
 }
 
 .toolbar {
-  width: 250px;
   background-color: #f0f0f0;
+  width: 250px;
+  padding: 20px;
+  overflow: hidden; /* Prevent scrolling within the toolbar */
 }
-/* Add this to your existing CSS */
-.toolbar.horizontal {
+
+.toolbar.portrait {
+  width: 250px;
+  position: relative; /* Not absolute */
+  flex-shrink: 0; /* Prevent toolbar from shrinking */
+}
+
+.toolbar.landscape {
   width: 100%;
+  height: 150px;
   display: flex;
   flex-direction: row;
   justify-content: space-around;
   align-items: center;
-  padding: 10px;
-  background-color: #f0f0f0;
   position: relative;
-  top: 0;
-  left: 0;
-  border-top: 1px solid #ddd;
-  border-bottom: 1px solid #ddd;
-}
-
-.toolbar.horizontal .tool-section {
-  margin: 0;
-  padding: 0;
-  border: none;
-  display: flex;
-  align-items: center;
 }
 
 .toolbar.horizontal .tool-section label,
@@ -76,6 +83,48 @@ body, html {
 .toolbar.horizontal .tool-section select,
 .toolbar.horizontal .tool-section button {
   margin: 0 5px;
+}
+/* Default (portrait) layout */
+.shape-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Landscape layout */
+.landscape .shape-controls {
+  flex-direction: row;
+  gap: 20px;
+}
+
+/* Make sections take equal width in landscape */
+.landscape .shape-controls .tool-section {
+  flex: 1;
+  margin: 0; /* Remove default margin to prevent double spacing */
+}
+
+.color-pickers {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.color-picker {
+  flex: 1;
+}
+
+.color-picker label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.9em;
+}
+
+.color-picker input[type="color"] {
+  width: 100%;
+  height: 30px; /* Slightly shorter height */
+  padding: 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
 
 .toolbar select.scale-select {
@@ -96,30 +145,39 @@ body, html {
 }
 
 .tool-section {
-  margin: 15px 0;
-  padding: 10px;
   border: 1px solid #ddd;
+  background: white;
+  padding: 15px;
+  margin: 10px 0;
   border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-.toolbar button {
-  width: 100%;
-  padding: 8px;
-  margin: 5px 0;
-  background-color: #4CAF50;
-  color: white;
+input[type="range"] {
+  -webkit-appearance: none;  /* Override default look */
+  width: 100%; /* Full width */
+  background: transparent; /* No background */
+  outline: none; /* Remove outline */
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  background: #ddd;
+  height: 6px;
+  border-radius: 3px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
   border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: green;
+  margin-top: -6px; /* Ensure thumb is centered on the track */
 }
 
-.toolbar button:disabled {
-  background-color: #cccccc;
-  cursor: not-allowed;
-}
-
-.toolbar button:hover:not(:disabled) {
-  background-color: #45a049;
+input[type="range"]:focus {
+  outline: none;
 }
 
 .toolbar input[type="color"] {
@@ -167,24 +225,36 @@ body, html {
   border: 1px solid #ccc;
 }
 
+
 .text-controls button.active, .text-align button.active {
   background: #4CAF50;
   color: white;
   border-color: #4CAF50;
 }
-.shapes-submenu {
+
+.submenu {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin-top: 5px;
 }
+/* Portrait mode: 2 columns, multiple rows */
+.portrait  .submenu{
+  grid-template-columns: repeat(2, 1fr);
+}
 
-.shapes-submenu button {
+/* Landscape mode: 2 rows, multiple columns */
+.landscape .submenu {
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto);
+}
+
+.submenu button {
   padding: 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 
 .group-controls {
   display: flex;
@@ -210,23 +280,7 @@ select {
   border-radius: 4px;
 }
 
-.tool-section {
-  background: white;
-  padding: 15px;
-  margin: 10px 0;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
 
-.toolbar button {
-  margin: 3px 0;
-  transition: all 0.3s ease;
-}
-
-.toolbar button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
 
 /* Add these new styles */
 .text-formatting label {
@@ -250,22 +304,12 @@ select option {
   padding: 5px;
 }
 
-.app-container {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: stretch; /* Stretch to fill the container vertically */
-  overflow: hidden; /* Prevent internal scrolling */
-}
 
-.toolbar {
-  width: 250px;
-  background-color: #f0f0f0;
-  padding: 20px;
-  overflow: hidden; /* Prevent scrolling within the toolbar */
-}
+
+
 
 .canvas-container {
+  /* order: 2;  */
   flex-grow: 1;
   justify-content: center;
   align-items: center;
@@ -294,20 +338,8 @@ select option {
   margin: auto !important;
   overflow: visible !important;
 } */
-.tool-section {
-  background: white;
-  padding: 15px;
-  margin: 10px 0;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
 
-.shapes-submenu {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-top: 5px;
-}
+
 
 .tool-button {
   display: flex;
@@ -373,25 +405,6 @@ select option {
   min-height: 36px;
 }
 
-.text-formatting {
-  margin-top: 15px;
-}
-
-.text-controls, .text-align {
-  display: flex;
-  gap: 5px;
-  margin: 10px 0;
-}
-
-.text-controls button, .text-align button {
-  flex: 1;
-  padding: 8px;
-  font-size: 14px;
-  background: #ffffff;
-  color: #333;
-  border: 1px solid #ccc;
-}
-
 .text-controls button.active, .text-align button.active {
   background: #4CAF50;
   color: white;
@@ -401,12 +414,25 @@ select option {
 .toolbar button {
   width: 100%;
   padding: 8px;
-  margin: 5px 0;
   background-color: #4CAF50;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  margin: 3px 0;
+  transition: all 0.3s ease;
+}
+
+
+.toolbar button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.toolbar button:hover:not(:disabled) {
+  background-color: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
 
 .toolbar button:disabled {
