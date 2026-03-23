@@ -111,12 +111,16 @@ jobs:
           path: build-metadata.json
 
       - name: Trigger Fortress Deploy
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.FORTRESS_WORKFLOW_TOKEN != ''
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
         env:
           FORTRESS_WORKFLOW_TOKEN: ${{ secrets.FORTRESS_WORKFLOW_TOKEN }}
         run: |
           set -euo pipefail
+          if [ -z "${FORTRESS_WORKFLOW_TOKEN:-}" ]; then
+            echo "FORTRESS_WORKFLOW_TOKEN is not configured; skipping fortress dispatch."
+            exit 0
+          fi
           curl -fsS -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${FORTRESS_WORKFLOW_TOKEN}" \
@@ -144,10 +148,8 @@ jobs:
             if [ -n "$DIGEST" ]; then
               echo "- Image digest: \`${DIGEST}\`"
             fi
-            if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ] && [ -n "${{ secrets.FORTRESS_WORKFLOW_TOKEN }}" ]; then
+            if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
               echo "- Deploy: fortress deployment was dispatched automatically for this SHA."
-            elif [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
-              echo "- Deploy: image publish succeeded; automatic fortress dispatch is skipped until \`FORTRESS_WORKFLOW_TOKEN\` is configured."
             else
               echo "- Deploy: automatic deployment is only triggered for pushes to \`main\`."
             fi
