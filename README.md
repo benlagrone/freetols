@@ -1,70 +1,64 @@
-# Getting Started with Create React App
+# Thumbnail Wizard
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Thumbnail Wizard is a React + Fabric.js thumbnail editor.
 
-## Available Scripts
+## Local Development
 
-In the project directory, you can run:
+```bash
+npm ci
+npm start
+```
 
-### `npm start`
+## Production Container (Local)
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Build and run with Docker:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```bash
+docker compose build
+docker compose up -d
+```
 
-### `npm test`
+Open:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- `http://localhost:8080`
 
-### `npm run build`
+If `8080` is already in use:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```bash
+APP_PORT=18080 docker compose up -d
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Stop:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```bash
+docker compose down
+```
 
-### `npm run eject`
+## GHCR + Fortress Deployment
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Production deployment now follows the fortress-controlled GHCR flow:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+1. Push to `main`.
+2. GitHub Actions builds and smokes the container.
+3. The workflow publishes:
+   - `ghcr.io/benlagrone/freetols:sha-<commit>`
+   - `ghcr.io/benlagrone/freetols:latest`
+4. The source workflow dispatches the fortress deploy workflow.
+5. Fortress SSHes to the Contabo VPS, pulls the pinned SHA image, and restarts only the `thumbnail-wizard` service.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+Primary references:
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+- `/.github/workflows/build-thumbnail-wizard.yml`
+- `/GITHUB_PIPELINE_HANDOFF.md`
+- `/DEPLOYMENT_RUNBOOK.md`
 
-## Learn More
+If the eventual GitHub repo or GHCR package name is not `benlagrone/freetols`, update those references before first push.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## What Was Added for Deployment
 
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Multi-stage production image: `Dockerfile`
+- Runtime Nginx config (SPA + caching): `docker/nginx.conf`
+- Deployment stack: `docker-compose.yml`
+- Container ignore file: `.dockerignore`
+- GHCR / fortress deployment runbook: `DEPLOYMENT_RUNBOOK.md`
+- GitHub Actions build pipeline: `.github/workflows/build-thumbnail-wizard.yml`

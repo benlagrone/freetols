@@ -13,8 +13,17 @@ import {
   Group,
   util // Add this line to access fabric.util
 } from 'fabric';
+// import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './App.css';
 import ReactGA from 'react-ga4';
+import Logo from './Logo'; // Ensure this matches the file name exactly
+import Menu from './Menu'; // Import the Menu component
+import TopContent from './TopContent.js'; // Ensure the path is correct
+import BottomContent from './BottomContent.js'; // Ensure the path is correct
+// import Tips from './Tips'; // Already shown in your example
+// import Wisdoms from './Wisdoms'; // Adjust the path if necessary
+// import Contact from './Contact'; // Adjust the path if necessary
+// import Legal from './Legal'; // Adjust the path if necessary
 
 // Initialize with your GA4 measurement ID
 ReactGA.initialize('G-LJBMXKDXY9');
@@ -27,135 +36,300 @@ const FONTS = [
   'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana',
   'Helvetica', 'Comic Sans MS', 'Impact', 'Tahoma', 'Trebuchet MS'
 ];
-
-
-
-
+const STORAGE_KEY = 'thumbnailWizard.canvas.v2';
+const LEGACY_STORAGE_KEY = 'canvasState';
+const HISTORY_LIMIT = 80;
+const DEFAULT_FONT_STYLE = { bold: false, italic: false, underline: false };
+const SAFE_ZONE_PRESETS = {
+  none: null,
+  youtube: { label: 'YouTube 16:9', insetX: 0.05, insetY: 0.1 },
+  shorts: { label: 'Shorts 9:16', insetX: 0.08, insetY: 0.12 }
+};
 
 function App() {
   const canvasRef = useRef(null);
   const fabricCanvasRef = useRef(null);
+  const historyLockRef = useRef(false);
+  const historyStackRef = useRef([]);
+  const historyIndexRef = useRef(-1);
+  const nextHistoryIdRef = useRef(1);
+  const nextObjectIdRef = useRef(1);
+  const snapEnabledRef = useRef(true);
+  const snapThresholdRef = useRef(8);
+  const snapToGridRef = useRef(true);
+  const gridSizeRef = useRef(40);
+  const showGuidesRef = useRef(true);
   const [activeObject, setActiveObject] = useState(null);
   const [textAlign, setTextAlign] = useState('left');
   const [isLandscape, setIsLandscape] = useState(false);
-  const [fontStyle, setFontStyle] = useState({
-    bold: false,
-    italic: false,
-    underline: false
-  });
-
+  const [fontStyle, setFontStyle] = useState(DEFAULT_FONT_STYLE);
   const [canvasScale, setCanvasScale] = useState(1);
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 720, height: 1280 });
+  const [layers, setLayers] = useState([]);
+  const [historyStack, setHistoryStack] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [snapshotName, setSnapshotName] = useState('');
+  const [showRulers, setShowRulers] = useState(true);
+  const [showGrid, setShowGrid] = useState(true);
+  const [showGuides, setShowGuides] = useState(true);
+  const [safeZonePreset, setSafeZonePreset] = useState('none');
+  const [snapEnabled, setSnapEnabled] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(true);
+  const [gridSize, setGridSize] = useState(40);
+  const [snapThreshold, setSnapThreshold] = useState(8);
 
+  useEffect(() => {
+    snapEnabledRef.current = snapEnabled;
+  }, [snapEnabled]);
+
+  useEffect(() => {
+    snapThresholdRef.current = snapThreshold;
+  }, [snapThreshold]);
+
+  useEffect(() => {
+    snapToGridRef.current = snapToGrid;
+  }, [snapToGrid]);
+
+  useEffect(() => {
+    gridSizeRef.current = gridSize;
+  }, [gridSize]);
+
+  useEffect(() => {
+    showGuidesRef.current = showGuides;
+  }, [showGuides]);
+
+  const updateHistoryState = (nextStack, nextIndex) => {
+    historyStackRef.current = nextStack;
+    historyIndexRef.current = nextIndex;
+    setHistoryStack(nextStack);
+    setHistoryIndex(nextIndex);
+  };
+
+  const ensureObjectId = (obj) => {
+    if (!obj) return null;
+    if (!obj.objectId) {
+      obj.set('objectId', `obj-${nextObjectIdRef.current++}`);
+    }
+    return obj.objectId;
+  };
+
+  const getLayerLabel = (obj, index) => {
+    if (!obj) return `Layer ${index + 1}`;
+    if (obj.isGuide) {
+      return obj.guideOrientation === 'vertical' ? 'Guide (Vertical)' : 'Guide (Horizontal)';
+    }
+    if (obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text') {
+      const rawText = typeof obj.text === 'string' ? obj.text.trim() : '';
+      if (rawText) {
+        return `Text: ${rawText.slice(0, 22)}${rawText.length > 22 ? '...' : ''}`;
+      }
+      return 'Text';
+    }
+    const type = obj.type || 'object';
+    return `${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+  };
+
+  const refreshLayers = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) {
+      setLayers([]);
+      return;
+    }
+
+    const objects = canvas.getObjects();
+    objects.forEach(ensureObjectId);
+    const mappedLayers = objects.map((obj, index) => ({
+      id: obj.objectId,
+      index,
+      label: getLayerLabel(obj, index),
+      visible: obj.visible !== false,
+      locked: obj.selectable === false || obj.lockMovementX === true
+    })).reverse();
+    setLayers(mappedLayers);
+  };
+
+  const serializeCanvasState = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return null;
+    return JSON.stringify(canvas.toJSON(['objectId', 'isGuide', 'guideOrientation']));
+  };
+
+  const saveCanvasState = () => {
+    const serialized = serializeCanvasState();
+    if (!serialized) return;
+    localStorage.setItem(STORAGE_KEY, serialized);
+  };
+
+  const normalizeGuideObject = (obj) => {
+    if (!obj?.isGuide) return;
+    const isVertical = obj.guideOrientation === 'vertical';
+    const guideCanvas = obj.canvas;
+    const guideCanvasWidth = guideCanvas?.getWidth?.() || canvasDimensions.width;
+    const guideCanvasHeight = guideCanvas?.getHeight?.() || canvasDimensions.height;
+
+    obj.set({
+      x1: 0,
+      y1: 0,
+      x2: isVertical ? 0 : guideCanvasWidth,
+      y2: isVertical ? guideCanvasHeight : 0,
+      left: isVertical ? (obj.left ?? guideCanvasWidth / 2) : 0,
+      top: isVertical ? 0 : (obj.top ?? guideCanvasHeight / 2),
+      stroke: '#00a3ff',
+      strokeWidth: 1,
+      strokeDashArray: [6, 6],
+      selectable: true,
+      evented: true,
+      hasControls: false,
+      hasBorders: false,
+      objectCaching: false,
+      lockRotation: true,
+      lockScalingX: true,
+      lockScalingY: true,
+      lockSkewingX: true,
+      lockSkewingY: true,
+      lockMovementX: !isVertical,
+      lockMovementY: isVertical,
+      hoverCursor: isVertical ? 'ew-resize' : 'ns-resize',
+      moveCursor: isVertical ? 'ew-resize' : 'ns-resize',
+      excludeFromExport: true,
+      visible: showGuidesRef.current
+    });
+    obj.setCoords();
+  };
+
+  const applySnapOffset = (sourceValues, targetValues, threshold) => {
+    let bestOffset = 0;
+    let bestDistance = threshold + 1;
+
+    sourceValues.forEach((source) => {
+      targetValues.forEach((target) => {
+        const distance = Math.abs(source - target);
+        if (distance <= threshold && distance < bestDistance) {
+          bestDistance = distance;
+          bestOffset = target - source;
+        }
+      });
+    });
+
+    return bestDistance <= threshold ? bestOffset : 0;
+  };
+
+  const pushHistoryEntry = (label = 'Edit', force = false) => {
+    if (historyLockRef.current) return;
+
+    const serialized = serializeCanvasState();
+    if (!serialized) return;
+
+    const currentStack = historyStackRef.current;
+    const currentIndex = historyIndexRef.current;
+    const currentEntry = currentStack[currentIndex];
+    if (!force && currentEntry?.state === serialized) return;
+
+    const nextEntry = {
+      id: `hist-${nextHistoryIdRef.current++}`,
+      label,
+      state: serialized,
+      createdAt: new Date().toISOString()
+    };
+    const trimmed = currentStack.slice(0, currentIndex + 1);
+    let nextStack = [...trimmed, nextEntry];
+    if (nextStack.length > HISTORY_LIMIT) {
+      nextStack = nextStack.slice(nextStack.length - HISTORY_LIMIT);
+    }
+    updateHistoryState(nextStack, nextStack.length - 1);
+  };
+
+  const runBatchedCanvasUpdate = (label, action) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    historyLockRef.current = true;
+    try {
+      action(canvas);
+    } finally {
+      historyLockRef.current = false;
+    }
+
+    canvas.requestRenderAll();
+    refreshLayers();
+    saveCanvasState();
+    pushHistoryEntry(label);
+  };
+
+  const restoreHistoryAtIndex = async (targetIndex) => {
+    const canvas = fabricCanvasRef.current;
+    const entry = historyStackRef.current[targetIndex];
+    if (!canvas || !entry) return;
+
+    historyLockRef.current = true;
+    try {
+      await canvas.loadFromJSON(entry.state);
+      canvas.getObjects().forEach((obj) => {
+        ensureObjectId(obj);
+        normalizeGuideObject(obj);
+      });
+      canvas.requestRenderAll();
+      setActiveObject(null);
+      setTextAlign('left');
+      setFontStyle(DEFAULT_FONT_STYLE);
+      refreshLayers();
+      historyIndexRef.current = targetIndex;
+      setHistoryIndex(targetIndex);
+      saveCanvasState();
+    } catch (error) {
+      console.error('Failed to restore history entry:', error);
+    } finally {
+      historyLockRef.current = false;
+    }
+  };
+
+  const undoHistory = () => {
+    const nextIndex = historyIndexRef.current - 1;
+    if (nextIndex < 0) return;
+    void restoreHistoryAtIndex(nextIndex);
+  };
+
+  const redoHistory = () => {
+    const nextIndex = historyIndexRef.current + 1;
+    if (nextIndex >= historyStackRef.current.length) return;
+    void restoreHistoryAtIndex(nextIndex);
+  };
+
+  const addSnapshot = () => {
+    const name = snapshotName.trim() || `Snapshot ${historyStackRef.current.length + 1}`;
+    pushHistoryEntry(name, true);
+    setSnapshotName('');
+  };
 
   const handleScaleChange = (newScale) => {
-    if (!fabricCanvasRef.current) return;
-
-    // Store current canvas state
-    const objects = fabricCanvasRef.current.getObjects();
-    const activeObject = fabricCanvasRef.current.getActiveObject();
-    const viewportTransform = fabricCanvasRef.current.viewportTransform;
-
-    // Calculate new dimensions
-    const width = isLandscape ? 1280 : 720;
-    const height = isLandscape ? 720 : 1280;
-
-    // Set new dimensions
-    fabricCanvasRef.current.setDimensions({
-      width: width * newScale,
-      height: height * newScale
-    });
-
-    // Scale all objects proportionally
-    const scaleRatio = newScale / canvasScale;
-    objects.forEach(obj => {
-      obj.scaleX = obj.scaleX * scaleRatio;
-      obj.scaleY = obj.scaleY * scaleRatio;
-      obj.left = obj.left * scaleRatio;
-      obj.top = obj.top * scaleRatio;
-      obj.setCoords();
-    });
-
-    // Restore viewport state
-    fabricCanvasRef.current.setZoom(newScale);
-    if (viewportTransform) {
-      fabricCanvasRef.current.viewportTransform = [...viewportTransform];
-    }
-
-    // Restore active object
-    if (activeObject) {
-      fabricCanvasRef.current.setActiveObject(activeObject);
-    }
-
-    fabricCanvasRef.current.requestRenderAll();
+    if (newScale === canvasScale) return;
+    saveCanvasState();
     setCanvasScale(newScale);
   };
 
-  const safeCanvasOperation = async (operation) => {
-    if (!fabricCanvasRef.current) return;
-
-    try {
-      // Disable rendering during batch operations
-      fabricCanvasRef.current.renderOnAddRemove = false;
-      await operation();
-    } catch (error) {
-      console.error('Canvas operation failed:', error);
-      throw error;
-    } finally {
-      // Always re-enable rendering
-      fabricCanvasRef.current.renderOnAddRemove = true;
-      fabricCanvasRef.current.requestRenderAll();
-    }
-  };
-
-
-
-  // Keep the wrapper functions simple
   const switchToLandscape = () => {
-    console.log('Attempting to switch to landscape');
     switchOrientation(true);
   };
 
   const switchToPortrait = () => {
-    console.log('Attempting to switch to portrait');
     switchOrientation(false);
   };
 
-  const handleOrientationSwitch = async (newIsLandscape) => {
-    try {
-      await switchOrientation(newIsLandscape);
-    } catch (error) {
-      // Implement your error UI here
-      console.error("Orientation switch failed:", error);
-    }
-  };
-
-  const saveCanvasState = () => {
-    if (!fabricCanvasRef.current) return;
-    const objects = fabricCanvasRef.current.getObjects().map(obj => obj.toObject());
-    console.log('Saving objects:', objects); // Log objects being saved
-    if (objects.length > 0) {
-      localStorage.setItem('canvasState', JSON.stringify(objects));
-    } else {
-      console.log('No objects to save.');
-    }
-  };
-
-
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    let canvas = fabricCanvasRef.current;
-
-    if (canvas) {
-      canvas.renderOnAddRemove = false;
-      canvas.dispose();
-      canvas = null;
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.renderOnAddRemove = false;
+      fabricCanvasRef.current.dispose();
+      fabricCanvasRef.current = null;
     }
 
     const baseWidth = isLandscape ? 1280 : 720;
     const baseHeight = isLandscape ? 720 : 1280;
     const width = baseWidth * canvasScale;
     const height = baseHeight * canvasScale;
+    setCanvasDimensions({ width, height });
 
     const newCanvas = new Canvas(canvasRef.current, {
       width,
@@ -179,25 +353,65 @@ function App() {
 
 
     newCanvas.setZoom(canvasScale);
+    let disposed = false;
 
-    const storedObjects = JSON.parse(localStorage.getItem('canvasState') || '[]');
-    console.log('Loading objects:', storedObjects);
+    const hydrateCanvas = async () => {
+      const latestHistoryState = historyStackRef.current[historyIndexRef.current]?.state;
+      const storedState = latestHistoryState || localStorage.getItem(STORAGE_KEY);
 
+      if (storedState) {
+        historyLockRef.current = true;
+        try {
+          await newCanvas.loadFromJSON(storedState);
+        } catch (error) {
+          console.error('Failed to restore saved canvas state:', error);
+        } finally {
+          historyLockRef.current = false;
+        }
+      } else {
+        const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacyRaw) {
+          try {
+            const legacyObjects = JSON.parse(legacyRaw);
+            historyLockRef.current = true;
+            const enlivenedObjects = await util.enlivenObjects(legacyObjects);
+            enlivenedObjects.forEach((obj) => {
+              newCanvas.add(obj);
+            });
+          } catch (error) {
+            console.error('Failed to migrate legacy canvas state:', error);
+          } finally {
+            historyLockRef.current = false;
+          }
+        }
+      }
 
+      if (disposed) return;
 
-    util.enlivenObjects(storedObjects).then((enlivenedObjects) => {
-      enlivenedObjects.forEach(enlivenedObj => {
-        enlivenedObj.set({
-          visible: true,
-          opacity: 1
-        });
-        newCanvas.add(enlivenedObj);
-        console.log('Object added to canvas:', enlivenedObj);
+      newCanvas.getObjects().forEach((obj) => {
+        ensureObjectId(obj);
+        normalizeGuideObject(obj);
       });
       newCanvas.requestRenderAll();
-    }).catch((error) => {
-      console.error('Error enlivening objects:', error);
-    });
+      refreshLayers();
+
+      if (historyStackRef.current.length === 0) {
+        const initialState = serializeCanvasState();
+        if (initialState) {
+          const initialEntry = {
+            id: `hist-${nextHistoryIdRef.current++}`,
+            label: 'Initial',
+            state: initialState,
+            createdAt: new Date().toISOString()
+          };
+          updateHistoryState([initialEntry], 0);
+        }
+      }
+
+      saveCanvasState();
+    };
+
+    void hydrateCanvas();
 
     const handleSelection = (e) => {
       const activeObj = e?.selected?.[0] || e?.target || newCanvas.getActiveObject();
@@ -213,34 +427,111 @@ function App() {
       }
     };
 
-    newCanvas.on('selection:created', handleSelection);
-    newCanvas.on('selection:updated', handleSelection);
-    newCanvas.on('selection:cleared', () => {
+    const handleSelectionCleared = () => {
       setActiveObject(null);
       setTextAlign('left');
-      setFontStyle({ bold: false, italic: false, underline: false });
-    });
-
-    // Automatically save canvas state on object changes
-    const autoSaveCanvas = () => {
-      saveCanvasState();
+      setFontStyle(DEFAULT_FONT_STYLE);
     };
 
-    newCanvas.on('object:added', autoSaveCanvas);
-    newCanvas.on('object:modified', autoSaveCanvas);
-    newCanvas.on('object:removed', autoSaveCanvas);
+    const handleCanvasMutation = (label) => {
+      if (historyLockRef.current) return;
+      newCanvas.getObjects().forEach((obj) => {
+        ensureObjectId(obj);
+        normalizeGuideObject(obj);
+      });
+      refreshLayers();
+      saveCanvasState();
+      pushHistoryEntry(label);
+    };
+
+    const handleObjectMoving = (e) => {
+      if (!snapEnabledRef.current) return;
+      const movingObject = e?.target;
+      if (!movingObject || movingObject.isGuide) return;
+
+      const rect = movingObject.getBoundingRect();
+      const xCandidates = [rect.left, rect.left + (rect.width / 2), rect.left + rect.width];
+      const yCandidates = [rect.top, rect.top + (rect.height / 2), rect.top + rect.height];
+
+      const xTargets = [0, newCanvas.getWidth() / 2, newCanvas.getWidth()];
+      const yTargets = [0, newCanvas.getHeight() / 2, newCanvas.getHeight()];
+
+      if (snapToGridRef.current) {
+        const step = Math.max(8, Number(gridSizeRef.current) || 40);
+        for (let x = 0; x <= newCanvas.getWidth(); x += step) {
+          xTargets.push(x);
+        }
+        for (let y = 0; y <= newCanvas.getHeight(); y += step) {
+          yTargets.push(y);
+        }
+      }
+
+      newCanvas.getObjects().forEach((obj) => {
+        if (obj === movingObject || obj.visible === false) return;
+        if (obj.isGuide) {
+          if (!showGuidesRef.current) return;
+          if (obj.guideOrientation === 'vertical') {
+            xTargets.push(obj.left || 0);
+          } else if (obj.guideOrientation === 'horizontal') {
+            yTargets.push(obj.top || 0);
+          }
+          return;
+        }
+
+        const otherRect = obj.getBoundingRect();
+        xTargets.push(otherRect.left, otherRect.left + (otherRect.width / 2), otherRect.left + otherRect.width);
+        yTargets.push(otherRect.top, otherRect.top + (otherRect.height / 2), otherRect.top + otherRect.height);
+      });
+
+      const threshold = Math.max(1, Number(snapThresholdRef.current) || 8);
+      const snapDx = applySnapOffset(xCandidates, xTargets, threshold);
+      const snapDy = applySnapOffset(yCandidates, yTargets, threshold);
+
+      if (snapDx !== 0 || snapDy !== 0) {
+        movingObject.set({
+          left: (movingObject.left || 0) + snapDx,
+          top: (movingObject.top || 0) + snapDy
+        });
+        movingObject.setCoords();
+      }
+    };
+
+    newCanvas.on('selection:created', handleSelection);
+    newCanvas.on('selection:updated', handleSelection);
+    newCanvas.on('selection:cleared', handleSelectionCleared);
+    newCanvas.on('object:moving', handleObjectMoving);
+    newCanvas.on('object:added', () => handleCanvasMutation('Added object'));
+    newCanvas.on('object:modified', () => handleCanvasMutation('Modified object'));
+    newCanvas.on('object:removed', () => handleCanvasMutation('Removed object'));
 
     return () => {
-      if (fabricCanvasRef.current) {
-        fabricCanvasRef.current.off();
-        fabricCanvasRef.current.dispose();
+      disposed = true;
+      newCanvas.off();
+      newCanvas.dispose();
+      if (fabricCanvasRef.current === newCanvas) {
         fabricCanvasRef.current = null;
       }
     };
-  }, [isLandscape, canvasScale]);
+  }, [isLandscape, canvasScale]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    canvas.getObjects().forEach((obj) => {
+      if (!obj.isGuide) return;
+      obj.set('visible', showGuides);
+    });
+    canvas.requestRenderAll();
+    refreshLayers();
+  }, [showGuides]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const switchOrientation = (newIsLandscape) => {
-    if (!fabricCanvasRef.current) return;
+    if (newIsLandscape === isLandscape) return;
+    if (!fabricCanvasRef.current) {
+      setIsLandscape(newIsLandscape);
+      return;
+    }
 
     try {
       const canvas = fabricCanvasRef.current;
@@ -271,10 +562,10 @@ function App() {
         object.setCoords();
       });
 
-      // Update state and render
-      setIsLandscape(newIsLandscape);
       canvas.requestRenderAll();
-
+      saveCanvasState();
+      pushHistoryEntry('Switched orientation');
+      setIsLandscape(newIsLandscape);
     } catch (error) {
       console.error('Error during orientation switch:', error);
     }
@@ -488,11 +779,11 @@ function App() {
     if (!fabricCanvasRef.current) return;
 
     const heart = new Path(
-      'M 10,30 \
-       A 20,20 0 0,1 50,30 \
-       A 20,20 0 0,1 90,30 \
-       Q 90,60 50,90 \
-       Q 10,60 10,30 z',
+      `M 10,30
+       A 20,20 0 0,1 50,30
+       A 20,20 0 0,1 90,30
+       Q 90,60 50,90
+       Q 10,60 10,30 z`,
       {
         left: 100,
         top: 100,
@@ -599,7 +890,6 @@ function App() {
     if (!fabricCanvasRef.current) return;
     const teeth = 12;
     const radius = 50;
-    const internalRadius = radius * 0.8;
     const toothDepth = radius * 0.2;
     let path = '';
 
@@ -719,32 +1009,6 @@ function App() {
     fabricCanvasRef.current.requestRenderAll();
   };
 
-  const addCustomPolygon = (sides = 6, starPoints = false) => {
-    if (!fabricCanvasRef.current) return;
-    const radius = 50;
-    let path = '';
-
-    for (let i = 0; i < sides; i++) {
-      const angle = (i * 2 * Math.PI) / sides;
-      const r = starPoints && i % 2 === 0 ? radius * 0.5 : radius;
-      const x = r * Math.cos(angle);
-      const y = r * Math.sin(angle);
-      path += `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-    }
-    path += ' Z';
-
-    const polygon = new Path(path, {
-      left: 100,
-      top: 100,
-      fill: '#9c27b0',
-      stroke: '#000000',
-      strokeWidth: 1,
-      selectable: true
-    });
-
-    fabricCanvasRef.current.add(polygon);
-    fabricCanvasRef.current.setActiveObject(polygon);
-  };
   const addImage = (e) => {
     if (!fabricCanvasRef.current) {
       console.error('Canvas is not initialized.');
@@ -799,14 +1063,213 @@ function App() {
   };
 
   const deleteSelected = () => {
-    if (!fabricCanvasRef.current) return;
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
 
-    if (fabricCanvasRef.current.getActiveObjects().length > 0) {
-      fabricCanvasRef.current.getActiveObjects().forEach((obj) => {
-        fabricCanvasRef.current.remove(obj);
+    const selected = canvas.getActiveObjects();
+    if (selected.length === 0) return;
+
+    runBatchedCanvasUpdate('Deleted selection', (batchedCanvas) => {
+      selected.forEach((obj) => {
+        batchedCanvas.remove(obj);
       });
-      fabricCanvasRef.current.discardActiveObject();
-      fabricCanvasRef.current.requestRenderAll(); // Use requestRenderAll() instead of renderAll()
+      batchedCanvas.discardActiveObject();
+      setActiveObject(null);
+      setTextAlign('left');
+      setFontStyle(DEFAULT_FONT_STYLE);
+    });
+  };
+
+  const getLayerObject = (objectId) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return null;
+    return canvas.getObjects().find((obj) => obj.objectId === objectId) || null;
+  };
+
+  const selectLayer = (objectId) => {
+    const canvas = fabricCanvasRef.current;
+    const target = getLayerObject(objectId);
+    if (!canvas || !target) return;
+    canvas.setActiveObject(target);
+    canvas.requestRenderAll();
+    setActiveObject(target);
+  };
+
+  const toggleLayerVisibility = (objectId) => {
+    const target = getLayerObject(objectId);
+    if (!target) return;
+    runBatchedCanvasUpdate('Toggled layer visibility', () => {
+      const nextVisibility = !(target.visible !== false);
+      target.set('visible', nextVisibility);
+      if (!nextVisibility && fabricCanvasRef.current?.getActiveObject() === target) {
+        fabricCanvasRef.current.discardActiveObject();
+        setActiveObject(null);
+      }
+    });
+  };
+
+  const toggleLayerLock = (objectId) => {
+    const target = getLayerObject(objectId);
+    if (!target) return;
+    runBatchedCanvasUpdate('Toggled layer lock', () => {
+      const nextLocked = !(target.selectable === false || target.lockMovementX === true);
+      target.set({
+        selectable: !nextLocked,
+        evented: !nextLocked,
+        lockMovementX: nextLocked,
+        lockMovementY: nextLocked,
+        lockScalingX: nextLocked,
+        lockScalingY: nextLocked,
+        lockRotation: nextLocked
+      });
+      if (nextLocked && fabricCanvasRef.current?.getActiveObject() === target) {
+        fabricCanvasRef.current.discardActiveObject();
+        setActiveObject(null);
+      }
+    });
+  };
+
+  const moveLayer = (objectId, direction) => {
+    const canvas = fabricCanvasRef.current;
+    const target = getLayerObject(objectId);
+    if (!canvas || !target) return;
+
+    const objects = canvas.getObjects();
+    const currentIndex = objects.indexOf(target);
+    if (currentIndex === -1) return;
+    const nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= objects.length) return;
+
+    canvas.moveObjectTo(target, nextIndex);
+    canvas.setActiveObject(target);
+    canvas.requestRenderAll();
+    setActiveObject(target);
+    refreshLayers();
+    saveCanvasState();
+    pushHistoryEntry('Reordered layers');
+  };
+
+  const deleteLayer = (objectId) => {
+    const target = getLayerObject(objectId);
+    if (!target) return;
+    runBatchedCanvasUpdate('Deleted layer', (canvas) => {
+      canvas.remove(target);
+      if (canvas.getActiveObject() === target) {
+        canvas.discardActiveObject();
+        setActiveObject(null);
+      }
+    });
+  };
+
+  const addGuide = (orientation = 'vertical') => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const isVertical = orientation === 'vertical';
+    const guide = isVertical
+      ? new Line([0, 0, 0, canvas.getHeight()], {
+        left: canvas.getWidth() / 2,
+        top: 0
+      })
+      : new Line([0, 0, canvas.getWidth(), 0], {
+        left: 0,
+        top: canvas.getHeight() / 2
+      });
+
+    guide.set({
+      isGuide: true,
+      guideOrientation: orientation
+    });
+    ensureObjectId(guide);
+    normalizeGuideObject(guide);
+
+    runBatchedCanvasUpdate('Added guide', (batchedCanvas) => {
+      batchedCanvas.add(guide);
+      batchedCanvas.setActiveObject(guide);
+      setActiveObject(guide);
+    });
+  };
+
+  const addVerticalGuide = () => addGuide('vertical');
+  const addHorizontalGuide = () => addGuide('horizontal');
+
+  const clearGuides = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    runBatchedCanvasUpdate('Cleared guides', (batchedCanvas) => {
+      const guides = batchedCanvas.getObjects().filter((obj) => obj.isGuide);
+      guides.forEach((guide) => batchedCanvas.remove(guide));
+      if (batchedCanvas.getActiveObject()?.isGuide) {
+        batchedCanvas.discardActiveObject();
+        setActiveObject(null);
+      }
+    });
+  };
+
+  const groupSelection = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const active = canvas.getActiveObject();
+    if (!(active instanceof ActiveSelection)) return;
+
+    runBatchedCanvasUpdate('Grouped selection', (batchedCanvas) => {
+      const groupedObjects = active.removeAll();
+      batchedCanvas.discardActiveObject();
+      groupedObjects.forEach((obj) => batchedCanvas.remove(obj));
+      const grouped = new Group(groupedObjects, {
+        objectCaching: false,
+        selectable: true
+      });
+      ensureObjectId(grouped);
+      batchedCanvas.add(grouped);
+      batchedCanvas.setActiveObject(grouped);
+      setActiveObject(grouped);
+    });
+  };
+
+  const ungroupSelection = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const active = canvas.getActiveObject();
+    if (!(active instanceof Group) || active instanceof ActiveSelection) return;
+
+    runBatchedCanvasUpdate('Ungrouped selection', (batchedCanvas) => {
+      const ungroupedObjects = active.removeAll();
+      batchedCanvas.remove(active);
+      ungroupedObjects.forEach((obj) => {
+        batchedCanvas.add(obj);
+      });
+      if (ungroupedObjects.length > 1) {
+        const selection = new ActiveSelection(ungroupedObjects, { canvas: batchedCanvas });
+        batchedCanvas.setActiveObject(selection);
+        setActiveObject(selection);
+      } else if (ungroupedObjects.length === 1) {
+        batchedCanvas.setActiveObject(ungroupedObjects[0]);
+        setActiveObject(ungroupedObjects[0]);
+      } else {
+        setActiveObject(null);
+      }
+    });
+  };
+
+  const withGuidesHidden = (operation) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return null;
+    const guides = canvas.getObjects().filter((obj) => obj.isGuide);
+    const previousVisibility = guides.map((guide) => ({
+      guide,
+      visible: guide.visible !== false
+    }));
+
+    guides.forEach((guide) => guide.set('visible', false));
+    canvas.requestRenderAll();
+    try {
+      return operation();
+    } finally {
+      previousVisibility.forEach(({ guide, visible }) => {
+        guide.set('visible', visible && showGuidesRef.current);
+      });
+      canvas.requestRenderAll();
     }
   };
 
@@ -814,10 +1277,11 @@ function App() {
     if (!fabricCanvasRef.current) return;
 
     // Get the canvas data as a data URL
-    const dataURL = fabricCanvasRef.current.toDataURL({
+    const dataURL = withGuidesHidden(() => fabricCanvasRef.current.toDataURL({
       format: 'jpeg',
       quality: 0.8 // Adjust quality to reduce size
-    });
+    }));
+    if (!dataURL) return;
 
     // Create an image element
     const img = new Image();
@@ -867,10 +1331,11 @@ function App() {
 
   const downloadCanvas = () => {
     if (!fabricCanvasRef.current) return;
-    const dataURL = fabricCanvasRef.current.toDataURL({
+    const dataURL = withGuidesHidden(() => fabricCanvasRef.current.toDataURL({
       format: 'png',
       quality: 1
-    });
+    }));
+    if (!dataURL) return;
     const link = document.createElement('a');
     link.download = 'canvas-design.png';
     link.href = dataURL;
@@ -880,13 +1345,14 @@ function App() {
   const clearCanvas = () => {
     if (!fabricCanvasRef.current) return;
 
-    fabricCanvasRef.current.clear();
-    fabricCanvasRef.current.backgroundColor = '#ffffff';
-    fabricCanvasRef.current.requestRenderAll();
-
-    // Explicitly clear local storage
-    localStorage.removeItem('canvasState');
-    console.log('Canvas cleared and local storage updated.');
+    runBatchedCanvasUpdate('Cleared canvas', (canvas) => {
+      canvas.clear();
+      canvas.backgroundColor = '#ffffff';
+      setActiveObject(null);
+      setTextAlign('left');
+      setFontStyle(DEFAULT_FONT_STYLE);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    });
   };
 
 
@@ -971,8 +1437,12 @@ function App() {
         underline: activeObj.underline,
         textAlign: activeObj.textAlign,
         fill: activeObj.fill,
-        backgroundColor: activeObj.backgroundColor
+        backgroundColor: activeObj.backgroundColor,
+        objectId: activeObj.objectId
       }));
+      saveCanvasState();
+      refreshLayers();
+      pushHistoryEntry('Updated text');
 
     } catch (error) {
       console.error('Error updating text style:', error);
@@ -982,36 +1452,157 @@ function App() {
   };
 
   const updateShapeStyle = (style, value) => {
-    if (!fabricCanvasRef.current || !activeObject) return;
-    console.log('Updating shape style:', style, value);
+    if (!fabricCanvasRef.current) return;
+    const selectedObject = fabricCanvasRef.current.getActiveObject();
+    if (!selectedObject) return;
 
     switch (style) {
       case 'fill':
-        activeObject.set('fill', value);
+        selectedObject.set('fill', value);
         break;
       case 'stroke':
-        activeObject.set('stroke', value);
+        selectedObject.set('stroke', value);
         break;
       case 'strokeWidth':
-        activeObject.set('strokeWidth', parseInt(value));
+        selectedObject.set('strokeWidth', parseInt(value, 10));
         break;
       case 'opacity':
-        activeObject.set('opacity', parseFloat(value));
+        selectedObject.set('opacity', parseFloat(value));
         break;
       default:
         break;
     }
     fabricCanvasRef.current.requestRenderAll();
+    saveCanvasState();
+    refreshLayers();
+    pushHistoryEntry('Updated shape');
   };
+
+  useEffect(() => {
+    const isTypingTarget = (target) => {
+      if (!target) return false;
+      const tagName = target.tagName?.toLowerCase();
+      return tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable;
+    };
+
+    const handleKeyDown = (event) => {
+      const key = event.key.toLowerCase();
+      const isMeta = event.metaKey || event.ctrlKey;
+      const typing = isTypingTarget(event.target);
+
+      if (isMeta && key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undoHistory();
+        return;
+      }
+      if (isMeta && (key === 'y' || (key === 'z' && event.shiftKey))) {
+        event.preventDefault();
+        redoHistory();
+        return;
+      }
+      if (typing) return;
+
+      if (key === 'delete' || key === 'backspace') {
+        event.preventDefault();
+        deleteSelected();
+        return;
+      }
+      if (isMeta && key === 'g' && !event.shiftKey) {
+        event.preventDefault();
+        groupSelection();
+        return;
+      }
+      if (isMeta && key === 'g' && event.shiftKey) {
+        event.preventDefault();
+        ungroupSelection();
+        return;
+      }
+      if (isMeta && key === 's') {
+        event.preventDefault();
+        downloadCanvas();
+        return;
+      }
+
+      switch (key) {
+        case 'g':
+          setShowGrid((previous) => !previous);
+          break;
+        case 's':
+          setSnapEnabled((previous) => !previous);
+          break;
+        case 't':
+          addText();
+          break;
+        case 'r':
+          addRectangle();
+          break;
+        case 'c':
+          addCircle();
+          break;
+        case 'l':
+          addLine();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const normalizeHexColor = (value, fallback = '#000000') => (
+    typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback
+  );
+  const selectedLayerId = activeObject?.objectId || null;
+  const activeCanvasObject = fabricCanvasRef.current?.getActiveObject() || null;
+  const canGroupSelection = !!activeCanvasObject && activeCanvasObject instanceof ActiveSelection;
+  const canUngroupSelection = !!activeCanvasObject && activeCanvasObject instanceof Group && !(activeCanvasObject instanceof ActiveSelection);
+  const safeZoneConfig = SAFE_ZONE_PRESETS[safeZonePreset];
+  const safeZoneStyle = safeZoneConfig ? {
+    left: `${safeZoneConfig.insetX * 100}%`,
+    right: `${safeZoneConfig.insetX * 100}%`,
+    top: `${safeZoneConfig.insetY * 100}%`,
+    bottom: `${safeZoneConfig.insetY * 100}%`
+  } : null;
+  const rulerMinorStep = 20;
+  const rulerMajorStep = 100;
+  const horizontalRulerTicks = [];
+  const verticalRulerTicks = [];
+  for (let value = 0; value <= canvasDimensions.width; value += rulerMinorStep) {
+    horizontalRulerTicks.push({
+      value,
+      major: value % rulerMajorStep === 0
+    });
+  }
+  for (let value = 0; value <= canvasDimensions.height; value += rulerMinorStep) {
+    verticalRulerTicks.push({
+      value,
+      major: value % rulerMajorStep === 0
+    });
+  }
+  const rulerGutter = showRulers ? 24 : 0;
+  const clampedGridSize = Math.max(8, Number(gridSize) || 40);
 
   // The JSX return remains exactly the same as in your current code
   return (
 
     <div className="page-wrapper">
-      <div className="ad-top">Ad Top</div>
+      <div className="ad-top"></div>
+  {/* Logo and Menu Section */}
+
+      {/* Logo and Menu Section */}
+      <div className="header">
+        <Logo />
+        <Menu />
+      </div>
+        {/* New Content Section Above the App Container */}
+        <TopContent /> {/* Use the TopContent component here */}
 
       <div className="content-wrapper">
-        <div className="ad-left">Ad Left</div>
+        <div className="ad-left"></div>
 
         <div className={`app-container ${isLandscape ? 'landscape' : 'portrait'}`}>
           <div className={`toolbar ${isLandscape ? 'landscape' : 'portrait'}`}>
@@ -1197,7 +1788,7 @@ function App() {
                     <label>Text Color</label>
                     <input
                       type="color"
-                      value={activeObject.fill}
+                      value={normalizeHexColor(activeObject.fill, '#000000')}
                       onChange={(e) => updateTextStyle('color', e.target.value)}
                     />
 
@@ -1217,51 +1808,176 @@ function App() {
               activeObject.type === 'triangle' ||
               activeObject.type === 'path') && (
                 <div className="shape-controls">
-  {/* Colors Section */}
-  <div className="colors-formatting tool-section">
-    <div className="color-pickers">
-      <div className="color-picker">
-        <label>Fill</label>
-        <input
-          type="color"
-          value={activeObject.fill}
-          onChange={(e) => updateShapeStyle('fill', e.target.value)}
-        />
-      </div>
-      <div className="color-picker">
-        <label>Stroke</label>
-        <input
-          type="color"
-          value={activeObject.stroke}
-          onChange={(e) => updateShapeStyle('stroke', e.target.value)}
-        />
-      </div>
-    </div>
-  </div>
+                  {/* Colors Section */}
+                  <div className="colors-formatting tool-section">
+                    <div className="color-pickers">
+                      <div className="color-picker">
+                        <label>Fill</label>
+                        <input
+                          type="color"
+                          value={normalizeHexColor(activeObject.fill, '#000000')}
+                          onChange={(e) => updateShapeStyle('fill', e.target.value)}
+                        />
+                      </div>
+                      <div className="color-picker">
+                        <label>Stroke</label>
+                        <input
+                          type="color"
+                          value={normalizeHexColor(activeObject.stroke, '#000000')}
+                          onChange={(e) => updateShapeStyle('stroke', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-  {/* Shape Properties Section */}
-  <div className="properties-formatting tool-section">
-    <label>Stroke Width</label>
-    <input
-      type="number"
-      value={activeObject.strokeWidth}
-      onChange={(e) => updateShapeStyle('strokeWidth', e.target.value)}
-      min="0"
-      max="50"
-    />
+                  {/* Shape Properties Section */}
+                  <div className="properties-formatting tool-section">
+                    <label>Stroke Width</label>
+                    <input
+                      type="number"
+                      value={activeObject.strokeWidth}
+                      onChange={(e) => updateShapeStyle('strokeWidth', e.target.value)}
+                      min="0"
+                      max="50"
+                    />
 
-    <label>Opacity</label>
-    <input
-  type="range"
-  value={activeObject.opacity || 1}
-  onChange={(e) => updateShapeStyle('opacity', parseFloat(e.target.value))}
-  min="0"
-  max="1"
-  step="0.01"
-/>
-  </div>
-</div>
+                    <label>Opacity</label>
+                    <input
+                      type="range"
+                      value={activeObject.opacity || 1}
+                      onChange={(e) => updateShapeStyle('opacity', parseFloat(e.target.value))}
+                      min="0"
+                      max="1"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
               )}
+
+            <div className="tool-section">
+              <label>History</label>
+              <div className="history-actions">
+                <button
+                  onClick={undoHistory}
+                  disabled={historyIndex <= 0}
+                  title="Undo (Cmd/Ctrl+Z)"
+                  className="tool-button compact"
+                >
+                  <i className="fa-solid fa-arrow-rotate-left"></i>
+                </button>
+                <button
+                  onClick={redoHistory}
+                  disabled={historyIndex >= historyStack.length - 1}
+                  title="Redo (Cmd/Ctrl+Shift+Z)"
+                  className="tool-button compact"
+                >
+                  <i className="fa-solid fa-arrow-rotate-right"></i>
+                </button>
+              </div>
+              <div className="snapshot-row">
+                <input
+                  type="text"
+                  value={snapshotName}
+                  placeholder="Snapshot name"
+                  onChange={(e) => setSnapshotName(e.target.value)}
+                />
+                <button onClick={addSnapshot} className="tool-button compact" title="Save Snapshot">
+                  <i className="fa-solid fa-camera"></i>
+                </button>
+              </div>
+              <div className="history-list">
+                {historyStack.slice().reverse().map((entry, reverseIndex) => {
+                  const stackIndex = historyStack.length - 1 - reverseIndex;
+                  const timeText = new Date(entry.createdAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  });
+                  return (
+                    <button
+                      key={entry.id}
+                      onClick={() => restoreHistoryAtIndex(stackIndex)}
+                      className={`history-item ${stackIndex === historyIndex ? 'active' : ''}`}
+                    >
+                      <span className="history-label">{entry.label}</span>
+                      <span className="history-time">{timeText}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="tool-section">
+              <label>Layers</label>
+              <div className="layer-groups">
+                <button
+                  onClick={groupSelection}
+                  className="tool-button compact"
+                  disabled={!canGroupSelection}
+                  title="Group (Cmd/Ctrl+G)"
+                >
+                  <i className="fa-solid fa-object-group"></i>
+                </button>
+                <button
+                  onClick={ungroupSelection}
+                  className="tool-button compact"
+                  disabled={!canUngroupSelection}
+                  title="Ungroup (Cmd/Ctrl+Shift+G)"
+                >
+                  <i className="fa-solid fa-object-ungroup"></i>
+                </button>
+              </div>
+              <div className="layers-list">
+                {layers.map((layer) => (
+                  <div key={layer.id} className="layer-item">
+                    <button
+                      className={`layer-name ${selectedLayerId === layer.id ? 'active' : ''}`}
+                      onClick={() => selectLayer(layer.id)}
+                      title={layer.label}
+                    >
+                      {layer.label}
+                    </button>
+                    <div className="layer-actions">
+                      <button
+                        className="tool-button compact"
+                        onClick={() => toggleLayerVisibility(layer.id)}
+                        title={layer.visible ? 'Hide layer' : 'Show layer'}
+                      >
+                        <i className={`fa-solid ${layer.visible ? 'fa-eye' : 'fa-eye-slash'}`}></i>
+                      </button>
+                      <button
+                        className="tool-button compact"
+                        onClick={() => toggleLayerLock(layer.id)}
+                        title={layer.locked ? 'Unlock layer' : 'Lock layer'}
+                      >
+                        <i className={`fa-solid ${layer.locked ? 'fa-lock' : 'fa-lock-open'}`}></i>
+                      </button>
+                      <button
+                        className="tool-button compact"
+                        onClick={() => moveLayer(layer.id, 1)}
+                        title="Move up"
+                      >
+                        <i className="fa-solid fa-arrow-up"></i>
+                      </button>
+                      <button
+                        className="tool-button compact"
+                        onClick={() => moveLayer(layer.id, -1)}
+                        title="Move down"
+                      >
+                        <i className="fa-solid fa-arrow-down"></i>
+                      </button>
+                      <button
+                        className="tool-button compact"
+                        onClick={() => deleteLayer(layer.id)}
+                        title="Delete layer"
+                      >
+                        <i className="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <div className="tool-section">
               <label>Upload Image</label>
@@ -1282,6 +1998,99 @@ function App() {
                 <option value={0.75}>75%</option>
                 <option value={1}>100%</option>
               </select>
+            </div>
+
+            <div className="tool-section guides-panel">
+              <label>Guides &amp; Snap</label>
+              <div className="guide-toggle-list">
+                <label className="inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showRulers}
+                    onChange={(e) => setShowRulers(e.target.checked)}
+                  />
+                  Show Rulers
+                </label>
+                <label className="inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showGrid}
+                    onChange={(e) => setShowGrid(e.target.checked)}
+                  />
+                  Show Grid
+                </label>
+                <label className="inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showGuides}
+                    onChange={(e) => setShowGuides(e.target.checked)}
+                  />
+                  Show Guides
+                </label>
+                <label className="inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={snapEnabled}
+                    onChange={(e) => setSnapEnabled(e.target.checked)}
+                  />
+                  Snap Enabled
+                </label>
+                <label className="inline-toggle">
+                  <input
+                    type="checkbox"
+                    checked={snapToGrid}
+                    onChange={(e) => setSnapToGrid(e.target.checked)}
+                  />
+                  Snap To Grid
+                </label>
+              </div>
+              <div className="guide-input-grid">
+                <div>
+                  <label>Grid Size (px)</label>
+                  <input
+                    type="number"
+                    min="8"
+                    max="400"
+                    step="1"
+                    value={gridSize}
+                    onChange={(e) => setGridSize(Math.max(8, Number(e.target.value) || 8))}
+                  />
+                </div>
+                <div>
+                  <label>Snap Threshold (px)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="80"
+                    step="1"
+                    value={snapThreshold}
+                    onChange={(e) => setSnapThreshold(Math.max(1, Number(e.target.value) || 1))}
+                  />
+                </div>
+              </div>
+              <label>Safe Zone</label>
+              <select
+                value={safeZonePreset}
+                onChange={(e) => setSafeZonePreset(e.target.value)}
+              >
+                {Object.entries(SAFE_ZONE_PRESETS).map(([presetId, preset]) => (
+                  <option key={presetId} value={presetId}>
+                    {preset ? preset.label : 'Off'}
+                  </option>
+                ))}
+              </select>
+              <div className="guide-actions">
+                <button onClick={addVerticalGuide} className="tool-button compact" title="Add vertical guide">
+                  +V
+                </button>
+                <button onClick={addHorizontalGuide} className="tool-button compact" title="Add horizontal guide">
+                  +H
+                </button>
+                <button onClick={clearGuides} className="tool-button compact" title="Clear guides">
+                  Clear
+                </button>
+              </div>
+              <div className="shortcut-hint">Shortcuts: G toggles grid, S toggles snap.</div>
             </div>
             <div className="tool-section">
               <div className="submenu other">
@@ -1304,7 +2113,7 @@ function App() {
                   <i className="fa-solid fa-mobile"></i>
                 </button>
 
-                <button onClick={deleteSelected} disabled={!activeObject} title="Delete Selected" className="tool-button">
+                <button onClick={deleteSelected} disabled={!activeCanvasObject} title="Delete Selected" className="tool-button">
                   <i className="fa-solid fa-trash"></i>
                 </button>
                 <button onClick={clearCanvas} title="Clear Canvas" className="tool-button">
@@ -1319,15 +2128,90 @@ function App() {
               </div>
             </div>
           </div>
-          <div className="canvas-container">
-            <canvas ref={canvasRef} id="canvas" />
+          <div className="canvas-container main-canvas">
+            <div
+              className={`canvas-stage ${showRulers ? 'with-rulers' : ''}`}
+              style={{
+                width: `${canvasDimensions.width + rulerGutter}px`,
+                height: `${canvasDimensions.height + rulerGutter}px`
+              }}
+            >
+              {showRulers && (
+                <>
+                  <div
+                    className="ruler ruler-horizontal"
+                    style={{
+                      left: `${rulerGutter}px`,
+                      width: `${canvasDimensions.width}px`
+                    }}
+                  >
+                    {horizontalRulerTicks.map((tick) => (
+                      <span
+                        key={`x-${tick.value}`}
+                        className={`ruler-tick ${tick.major ? 'major' : 'minor'}`}
+                        style={{
+                          left: `${(tick.value / Math.max(canvasDimensions.width, 1)) * 100}%`
+                        }}
+                      >
+                        {tick.major && <span className="ruler-label">{tick.value}</span>}
+                      </span>
+                    ))}
+                  </div>
+                  <div
+                    className="ruler ruler-vertical"
+                    style={{
+                      top: `${rulerGutter}px`,
+                      height: `${canvasDimensions.height}px`
+                    }}
+                  >
+                    {verticalRulerTicks.map((tick) => (
+                      <span
+                        key={`y-${tick.value}`}
+                        className={`ruler-tick ${tick.major ? 'major' : 'minor'}`}
+                        style={{
+                          top: `${(tick.value / Math.max(canvasDimensions.height, 1)) * 100}%`
+                        }}
+                      >
+                        {tick.major && <span className="ruler-label">{tick.value}</span>}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="ruler-corner"></div>
+                </>
+              )}
+              <div
+                className="canvas-viewport"
+                style={{
+                  width: `${canvasDimensions.width}px`,
+                  height: `${canvasDimensions.height}px`,
+                  left: `${rulerGutter}px`,
+                  top: `${rulerGutter}px`
+                }}
+              >
+                {showGrid && (
+                  <div
+                    className="grid-overlay"
+                    style={{ backgroundSize: `${clampedGridSize}px ${clampedGridSize}px` }}
+                  ></div>
+                )}
+                {safeZoneConfig && (
+                  <div className="safe-zone-overlay" style={safeZoneStyle}>
+                    <span className="safe-zone-label">{safeZoneConfig.label}</span>
+                  </div>
+                )}
+                <canvas ref={canvasRef} id="canvas" />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="ad-right">Ad Right</div>
+
+        <div className="ad-right"></div>
       </div>
 
-      <div className="ad-bottom">Ad Bottom</div>
+      <BottomContent /> {/* Use the BottomContent component here */}
+
+      <div className="ad-bottom"></div>
     </div>
 
   );
