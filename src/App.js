@@ -13,23 +13,11 @@ import {
   Group,
   util // Add this line to access fabric.util
 } from 'fabric';
-// import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './App.css';
-import ReactGA from 'react-ga4';
-import Logo from './Logo'; // Ensure this matches the file name exactly
-import Menu from './Menu'; // Import the Menu component
-import TopContent from './TopContent.js'; // Ensure the path is correct
-import BottomContent from './BottomContent.js'; // Ensure the path is correct
-// import Tips from './Tips'; // Already shown in your example
-// import Wisdoms from './Wisdoms'; // Adjust the path if necessary
-// import Contact from './Contact'; // Adjust the path if necessary
-// import Legal from './Legal'; // Adjust the path if necessary
-
-// Initialize with your GA4 measurement ID
-ReactGA.initialize('G-LJBMXKDXY9');
-
-// Track a page view
-ReactGA.send({ hitType: "pageview", page: window.location.pathname + window.location.search });
+import BottomContent from './BottomContent.js';
+import SiteFooter from './SiteFooter';
+import SiteHeader from './SiteHeader';
+import TopContent from './TopContent.js';
 
 // Common fonts list
 const FONTS = [
@@ -97,6 +85,10 @@ function App() {
   useEffect(() => {
     showGuidesRef.current = showGuides;
   }, [showGuides]);
+
+  useEffect(() => {
+    document.title = 'Free Thumbnail Wizard | Fast browser-based thumbnail editor';
+  }, []);
 
   const updateHistoryState = (nextStack, nextIndex) => {
     historyStackRef.current = nextStack;
@@ -1586,24 +1578,12 @@ function App() {
   const rulerGutter = showRulers ? 24 : 0;
   const clampedGridSize = Math.max(8, Number(gridSize) || 40);
 
-  // The JSX return remains exactly the same as in your current code
   return (
-
     <div className="page-wrapper">
-      <div className="ad-top"></div>
-  {/* Logo and Menu Section */}
+      <SiteHeader />
+      <TopContent />
 
-      {/* Logo and Menu Section */}
-      <div className="header">
-        <Logo />
-        <Menu />
-      </div>
-        {/* New Content Section Above the App Container */}
-        <TopContent /> {/* Use the TopContent component here */}
-
-      <div className="content-wrapper">
-        <div className="ad-left"></div>
-
+      <div id="editor" className="editor-shell">
         <div className={`app-container ${isLandscape ? 'landscape' : 'portrait'}`}>
           <div className={`toolbar ${isLandscape ? 'landscape' : 'portrait'}`}>
             <h3>Tools</h3>
@@ -2204,16 +2184,11 @@ function App() {
             </div>
           </div>
         </div>
-
-
-        <div className="ad-right"></div>
       </div>
 
-      <BottomContent /> {/* Use the BottomContent component here */}
-
-      <div className="ad-bottom"></div>
+      <BottomContent />
+      <SiteFooter />
     </div>
-
   );
 }
 

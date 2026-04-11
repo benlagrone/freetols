@@ -1,3 +1,16 @@
+:root {
+  --ink: #211b17;
+  --muted: #5f5448;
+  --parchment: #f5ecdd;
+  --paper: rgba(255, 251, 244, 0.94);
+  --gold: #c88b2b;
+  --gold-deep: #9a6110;
+  --forest: #254e3c;
+  --forest-deep: #18382b;
+  --line: rgba(82, 61, 34, 0.16);
+  --shadow: 0 24px 60px rgba(35, 23, 10, 0.15);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -7,47 +20,362 @@
 body, html {
   height: 100%;
   width: 100%;
-  overflow: auto; /* Allow the browser's main scrollbar to be used if needed */
+  overflow: auto;
 }
-/* New wrapper for ads and app */
+
 .page-wrapper {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: #f5f5f5;
-}
-
-.ad-top, .ad-bottom {
-  height: 10px;
-  background-color: #ccc;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  padding: 10px;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(255, 210, 130, 0.35), transparent 34%),
+    radial-gradient(circle at top right, rgba(43, 88, 69, 0.12), transparent 28%),
+    linear-gradient(180deg, #fbf4e8 0%, #f2e7d2 100%);
 }
 
 .logo img {
-  height: 130px; /* Adjust as needed */
-  margin-right: 20px;
+  display: block;
+  width: auto;
+  height: 88px;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px clamp(20px, 4vw, 48px);
+}
+
+.site-brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brand-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1.3rem, 2vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.brand-tagline {
+  max-width: 34rem;
+  color: var(--muted);
+  font-size: 0.96rem;
 }
 
 .menu ul {
   list-style: none;
   display: flex;
-  gap: 15px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
   padding: 0;
   margin: 0;
 }
 
-.menu li a {
+.menu-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
   text-decoration: none;
-  color: #333; /* Adjust as needed */
-  font-weight: bold;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.menu-link:hover,
+.menu-link.active {
+  background: rgba(37, 78, 60, 0.1);
+  color: var(--forest-deep);
+  border-color: rgba(37, 78, 60, 0.12);
+}
+
+.home-hero,
+.home-lower,
+.site-page,
+.editor-shell {
+  width: min(1240px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.home-hero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 8px 0 24px;
+}
+
+.home-hero-copy,
+.quote-card {
+  padding: clamp(24px, 4vw, 36px);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+}
+
+.home-hero-copy {
+  flex: 2 1 620px;
+}
+
+.quote-card {
+  flex: 1 1 280px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background:
+    linear-gradient(180deg, rgba(27, 60, 46, 0.96), rgba(20, 44, 34, 0.98)),
+    var(--forest);
+  color: #f6ecd4;
+}
+
+.page-eyebrow,
+.quote-label,
+.footer-kicker {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.page-eyebrow {
+  margin-bottom: 14px;
+  color: var(--gold-deep);
+}
+
+.page-intro {
+  max-width: 46rem;
+  color: var(--muted);
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.home-hero h1,
+.page-hero h1 {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.2rem, 4vw, 4rem);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.home-hero h1 {
+  max-width: 12ch;
+  margin-bottom: 16px;
+}
+
+.quote-card blockquote {
+  margin: 16px 0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.35rem;
+  line-height: 1.45;
+}
+
+.quote-caption {
+  color: rgba(246, 236, 212, 0.82);
+  line-height: 1.6;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.primary-link,
+.secondary-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.primary-link {
+  color: #fff7ec;
+  background: linear-gradient(135deg, var(--gold), #d96d35);
+  box-shadow: 0 18px 34px rgba(201, 116, 45, 0.24);
+}
+
+.secondary-link {
+  color: var(--forest-deep);
+  background: rgba(37, 78, 60, 0.1);
+  border: 1px solid rgba(37, 78, 60, 0.15);
+}
+
+.text-link {
+  color: var(--gold-deep);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.text-link:hover,
+.primary-link:hover,
+.secondary-link:hover {
+  filter: brightness(0.98);
+}
+
+.content-grid {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+}
+
+.content-grid.three-up {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.content-grid.two-up {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.feature-card,
+.content-card {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.feature-card {
+  padding: 22px;
+}
+
+.content-card {
+  padding: 28px;
+}
+
+.feature-card h2,
+.feature-card h3,
+.content-card h2 {
+  font-family: Georgia, 'Times New Roman', serif;
+  margin-bottom: 12px;
+}
+
+.feature-card p,
+.content-card p,
+.content-card li {
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.home-lower {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 0 0 32px;
+}
+
+.bullet-list {
+  display: grid;
+  gap: 10px;
+  padding-left: 18px;
+}
+
+.inline-note {
+  margin-top: 14px;
+  font-style: italic;
+}
+
+.site-page {
+  padding: 8px 0 32px;
+}
+
+.page-hero {
+  padding: clamp(24px, 4vw, 36px);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.page-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.article-flow {
+  display: grid;
+  gap: 14px;
+}
+
+.quote-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.quote-chip {
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(37, 78, 60, 0.12);
+  background: rgba(37, 78, 60, 0.06);
+  color: var(--ink);
+  line-height: 1.6;
+}
+
+.editor-shell {
+  padding: 6px 0 24px;
+}
+
+.site-footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  width: min(1240px, calc(100% - 32px));
+  margin: 8px auto 32px;
+  padding: 24px 28px;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: rgba(33, 27, 23, 0.95);
+  color: #f0e4cb;
+}
+
+.footer-copy {
+  max-width: 42rem;
+}
+
+.footer-copy p + p {
+  margin-top: 10px;
+}
+
+.footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.footer-links a {
+  color: #f0e4cb;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.footer-links a:hover {
+  color: #ffd38d;
 }
 
 .content-wrapper {
@@ -55,18 +383,14 @@ body, html {
   flex: 1;
 }
 
-.ad-left, .ad-right {
-  width: 150px;
-  background-color: #ccc;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
 .app-container {
   display: flex;
   flex-grow: 1;
-  /* Remove the fixed flex-direction, we'll control it in the mode-specific classes */
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: rgba(255, 252, 247, 0.9);
+  box-shadow: var(--shadow);
   justify-content: center;
   align-items: stretch;
   overflow: hidden;
@@ -794,6 +1118,37 @@ select option {
 }
 
 @media (max-width: 900px) {
+  .site-header,
+  .site-brand,
+  .site-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .content-grid.three-up,
+  .content-grid.two-up,
+  .quote-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-hero,
+  .home-lower,
+  .site-page,
+  .editor-shell,
+  .site-footer {
+    width: min(100% - 24px, 1240px);
+  }
+
+  .app-container.portrait,
+  .app-container.landscape {
+    flex-direction: column;
+  }
+
+  .toolbar.portrait,
+  .toolbar.landscape {
+    width: 100%;
+  }
+
   .guide-input-grid {
     grid-template-columns: 1fr;
   }
