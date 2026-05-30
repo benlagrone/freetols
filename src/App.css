@@ -20,13 +20,20 @@
 body, html {
   height: 100%;
   width: 100%;
-  overflow: auto;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 .page-wrapper {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   color: var(--ink);
   background:
     radial-gradient(circle at top left, rgba(255, 210, 130, 0.35), transparent 34%),
@@ -37,15 +44,20 @@ body, html {
 .logo img {
   display: block;
   width: auto;
-  height: 88px;
+  height: 48px;
 }
 
 .site-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 24px clamp(20px, 4vw, 48px);
+  flex: 0 0 auto;
+  gap: 16px;
+  min-height: 64px;
+  padding: 8px clamp(12px, 2vw, 24px);
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 251, 244, 0.88);
+  backdrop-filter: blur(10px);
 }
 
 .site-brand {
@@ -64,7 +76,7 @@ body, html {
 
 .brand-title {
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: clamp(1.3rem, 2vw, 1.75rem);
+  font-size: clamp(1.05rem, 1.5vw, 1.35rem);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -72,7 +84,7 @@ body, html {
 .brand-tagline {
   max-width: 34rem;
   color: var(--muted);
-  font-size: 0.96rem;
+  font-size: 0.78rem;
 }
 
 .menu ul {
@@ -88,8 +100,8 @@ body, html {
 .menu-link {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
-  padding: 0 14px;
+  min-height: 34px;
+  padding: 0 12px;
   border-radius: 999px;
   text-decoration: none;
   color: var(--ink);
@@ -337,7 +349,9 @@ body, html {
 }
 
 .editor-shell {
-  padding: 6px 0 24px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 8px clamp(8px, 1.2vw, 14px) 10px;
 }
 
 .site-footer {
@@ -386,11 +400,13 @@ body, html {
 .app-container {
   display: flex;
   flex-grow: 1;
+  height: 100%;
+  min-height: 0;
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 28px;
+  border: 1px solid rgba(82, 61, 34, 0.2);
+  border-radius: 8px;
   background: rgba(255, 252, 247, 0.9);
-  box-shadow: var(--shadow);
+  box-shadow: 0 16px 40px rgba(35, 23, 10, 0.12);
   justify-content: center;
   align-items: stretch;
   overflow: hidden;
@@ -406,13 +422,13 @@ body, html {
 
 .toolbar {
   background-color: #f0f0f0;
-  width: 250px;
-  padding: 20px;
+  width: 260px;
+  padding: 10px;
   overflow-y: auto;
 }
 
 .toolbar.portrait {
-  width: 250px;
+  width: 260px;
   position: relative; /* Not absolute */
   flex-shrink: 0; /* Prevent toolbar from shrinking */
 }
@@ -498,8 +514,8 @@ body, html {
 .tool-section {
   border: 1px solid #ddd;
   background: white;
-  padding: 15px;
-  margin: 10px 0;
+  padding: 10px;
+  margin: 8px 0;
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
@@ -551,7 +567,7 @@ input[type="range"]:focus {
 
 .toolbar h3 {
   margin-top: 0;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 1px solid #ccc;
 }
 .landscape-icon {
@@ -662,9 +678,11 @@ select option {
 .canvas-container {
   display: flex;
   flex-grow: 1;
+  min-width: 0;
+  min-height: 0;
   justify-content: center;
   align-items: center;
-  padding: 14px;
+  padding: 10px;
   background-color: #e0e0e0;
   overflow: hidden;
 }
@@ -1118,11 +1136,30 @@ select option {
 }
 
 @media (max-width: 900px) {
-  .site-header,
-  .site-brand,
-  .site-footer {
-    flex-direction: column;
-    align-items: flex-start;
+  .site-header {
+    min-height: 56px;
+  }
+
+  .site-brand {
+    gap: 10px;
+  }
+
+  .brand-tagline {
+    display: none;
+  }
+
+  .menu ul {
+    gap: 4px;
+  }
+
+  .menu-link {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 0.82rem;
+  }
+
+  .logo img {
+    height: 36px;
   }
 
   .content-grid.three-up,
@@ -1141,12 +1178,13 @@ select option {
 
   .app-container.portrait,
   .app-container.landscape {
-    flex-direction: column;
+    flex-direction: row;
   }
 
   .toolbar.portrait,
   .toolbar.landscape {
-    width: 100%;
+    width: 156px;
+    flex-shrink: 0;
   }
 
   .guide-input-grid {
@@ -1154,6 +1192,6 @@ select option {
   }
 
   .canvas-container {
-    padding: 8px;
+    padding: 6px;
   }
 }

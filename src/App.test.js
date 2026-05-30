@@ -17,8 +17,9 @@ jest.mock('react-router-dom', () => ({
 
 test('renders thumbnail wizard shell', () => {
   render(<App />);
-  expect(screen.getByRole('heading', { name: /make a thumbnail that looks deliberate/i })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /free thumbnail wizard home/i })).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: /^tools$/i })).toBeInTheDocument();
+  expect(screen.getByLabelText(/show rulers/i)).toBeInTheDocument();
 });
 
 test('renders the tips route content', () => {

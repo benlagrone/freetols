@@ -14,10 +14,7 @@ import {
   util // Add this line to access fabric.util
 } from 'fabric';
 import './App.css';
-import BottomContent from './BottomContent.js';
-import SiteFooter from './SiteFooter';
 import SiteHeader from './SiteHeader';
-import TopContent from './TopContent.js';
 
 // Common fonts list
 const FONTS = [
@@ -51,7 +48,7 @@ function App() {
   const [textAlign, setTextAlign] = useState('left');
   const [isLandscape, setIsLandscape] = useState(false);
   const [fontStyle, setFontStyle] = useState(DEFAULT_FONT_STYLE);
-  const [canvasScale, setCanvasScale] = useState(1);
+  const [canvasScale, setCanvasScale] = useState(0.5);
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 720, height: 1280 });
   const [layers, setLayers] = useState([]);
   const [historyStack, setHistoryStack] = useState([]);
@@ -1581,7 +1578,6 @@ function App() {
   return (
     <div className="page-wrapper">
       <SiteHeader />
-      <TopContent />
 
       <div id="editor" className="editor-shell">
         <div className={`app-container ${isLandscape ? 'landscape' : 'portrait'}`}>
@@ -2185,9 +2181,6 @@ function App() {
           </div>
         </div>
       </div>
-
-      <BottomContent />
-      <SiteFooter />
     </div>
   );
 }
